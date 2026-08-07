@@ -332,7 +332,11 @@ async function load() {
     }
     const ct = res.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
-      throw new Error('API route returned HTML instead of JSON. Ensure Worker functions are deployed.');
+      const text = await res.text().catch(() => '');
+      if (res.status === 503 || text.includes('inspection register is not configured')) {
+        throw new Error('The inspection register is not configured. Please set ADMIN_USER and ADMIN_PASSWORD in Cloudflare Worker Variables & Secrets.');
+      }
+      throw new Error(`API route returned non-JSON (${res.status} ${res.statusText}). Ensure Worker functions are built and deployed.`);
     }
     const dataObj = await res.json().catch(() => ({}));
     if (!res.ok) {
