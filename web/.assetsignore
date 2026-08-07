@@ -1,0 +1,3 @@
+# The compiled Worker lives inside the assets directory but must never be
+# served as a static file — it is the code, not content.
+_worker.js

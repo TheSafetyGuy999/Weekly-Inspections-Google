@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Weekly Airfield Maintenance | Wilderness Air</title>
+<meta name="theme-color" content="#1B2A3B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: #F2F4F6; color: #1B2A3B;
+    font-family: Calibri, "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; padding-bottom: 40px;
+  }
+  header {
+    background: #1B2A3B; color: #fff; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(15,22,33,0.25);
+  }
+  .header-wrap {
+    max-width: 800px; margin: 0 auto; padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { height: 38px; width: auto; object-fit: contain; }
+  .brand-text h1 { font-size: 17px; font-weight: 700; margin: 0; line-height: 1.2; color: #FFFFFF; }
+  .brand-text .sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #9DB0C4; }
+  
+  .header-actions { display: flex; align-items: center; gap: 8px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .badge-online { background: #EAF3E6; color: #2E601C; }
+  .badge-offline { background: #FBF3DE; color: #8F680D; }
+  .badge-queue { background: #D4A017; color: #1B2A3B; cursor: pointer; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot-online { background: #4E7A38; }
+  .dot-offline { background: #D4A017; }
+
+  .icon-btn {
+    background: rgba(255,255,255,0.1); border: none; color: #fff; width: 36px; height: 36px;
+    border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.2); }
+
+  main { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+  .card {
+    background: #fff; border: 1px solid #E2E6EB; border-radius: 12px;
+    padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .card-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
+    color: #1B2A3B; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 2px solid #F2F4F6; padding-bottom: 8px;
+  }
+
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12.5px; font-weight: 700; color: #44546A; }
+  .form-group label span.req { color: #C0392B; margin-left: 2px; }
+
+  input, select, textarea {
+    border: 1px solid #D6DBE1; border-radius: 8px; padding: 10px 12px; font-size: 14px;
+    color: #1B2A3B; font-family: inherit; background: #fff; width: 100%; transition: border-color 0.2s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #D4A017; box-shadow: 0 0 0 3px rgba(212,160,23,0.15); }
+
+  /* Checklist Item */
+  .check-item {
+    display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
+    background: #F8FAFC; border: 1px solid #E9ECEF; border-radius: 10px; margin-bottom: 10px;
+    cursor: pointer; user-select: none; transition: background 0.15s, border-color 0.15s;
+  }
+  .check-item:hover { background: #F1F4F8; }
+  .check-item.checked { background: #F0F7ED; border-color: #C3E0B8; }
+  .checkbox-custom {
+    width: 22px; height: 22px; border-radius: 6px; border: 2px solid #ADB5BD;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    background: #fff; transition: all 0.15s;
+  }
+  .check-item.checked .checkbox-custom {
+    background: #4E7A38; border-color: #4E7A38; color: #fff;
+  }
+  .checkbox-custom svg { display: none; width: 14px; height: 14px; stroke: #fff; stroke-width: 3; fill: none; }
+  .check-item.checked .checkbox-custom svg { display: block; }
+
+  .check-text { flex: 1; }
+  .check-text strong { display: block; font-size: 14px; color: #1B2A3B; margin-bottom: 2px; }
+  .check-text span { font-size: 12px; color: #6C757D; line-height: 1.3; display: block; }
+
+  /* Issue Selector */
+  .issue-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .issue-option {
+    border: 2px solid #E2E6EB; border-radius: 10px; padding: 12px; text-align: center;
+    cursor: pointer; background: #fff; transition: all 0.2s;
+  }
+  .issue-option strong { display: block; font-size: 13.5px; margin-bottom: 2px; }
+  .issue-option span { font-size: 11px; color: #6C757D; }
+  .issue-option.selected-none { border-color: #4E7A38; background: #EAF3E6; color: #2E601C; }
+  .issue-option.selected-minor { border-color: #D4A017; background: #FBF3DE; color: #8F680D; }
+  .issue-option.selected-major { border-color: #C0392B; background: #FBE9E7; color: #902418; }
+
+  /* Photo Upload Grid */
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 10px; }
+  .photo-thumb {
+    width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; position: relative;
+    border: 1px solid #D6DBE1; background: #E9ECEF;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-thumb .remove-btn {
+    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,0,0,0.6); color: #fff; border: none; font-size: 12px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .photo-add-btn {
+    width: 100%; aspect-ratio: 1; border: 2px dashed #CBD5E1; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #64748B; cursor: pointer; background: #F8FAFC; transition: background 0.2s, border-color 0.2s;
+  }
+  .photo-add-btn:hover { background: #F1F5F9; border-color: #D4A017; color: #1B2A3B; }
+  .photo-add-btn svg { width: 24px; height: 24px; margin-bottom: 4px; }
+  .photo-add-btn span { font-size: 11px; font-weight: 700; }
+
+  /* Signature Canvas */
+  .sig-container { border: 1px solid #D6DBE1; border-radius: 8px; background: #FAF9F6; position: relative; }
+  canvas#sigCanvas { width: 100%; height: 120px; display: block; border-radius: 8px; touch-action: none; }
+  .sig-clear {
+    position: absolute; bottom: 6px; right: 6px; background: #E2E6EB; color: #44546A;
+    border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+
+  /* Submit Button */
+  .submit-btn {
+    width: 100%; background: #D4A017; color: #1B2A3B; border: none; border-radius: 10px;
+    padding: 14px 20px; font-size: 16px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 2px 6px rgba(212,160,23,0.3); transition: transform 0.1s, background 0.2s;
+  }
+  .submit-btn:active { transform: scale(0.99); }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* Modals */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,22,33,0.6); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.active { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: #fff; border-radius: 12px; width: 100%; max-width: 500px;
+    max-height: 85vh; overflow-y: auto; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid #E2E6EB; padding-bottom: 10px; }
+  .modal-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+  .modal-close { background: none; border: none; font-size: 20px; color: #6C757D; cursor: pointer; }
+
+  /* Toast Notification */
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #1B2A3B; color: #fff; padding: 12px 20px; border-radius: 30px; font-size: 13.5px;
+    font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 300; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex; align-items: center; gap: 8px; max-width: 90%; text-align: center;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-wrap">
+    <div class="brand">
+      <img src="/assets/wilderness-air-logo.png" alt="Wilderness Air" class="logo" onerror="this.style.display='none'">
+      <div class="brand-text">
+        <h1>Airfield Checklist</h1>
+        <div class="sub">Weekly Maintenance</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="statusBadge" class="badge badge-online">
+        <span class="dot dot-online"></span> <span id="statusText">Online</span>
+      </span>
+      <button class="badge badge-queue" id="queueBtn" style="display:none;" onclick="openQueueModal()">
+        Queue: <span id="queueCount">0</span>
+      </button>
+      <button class="icon-btn" onclick="openSettingsModal()" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <form id="checklistForm" onsubmit="handleFormSubmit(event)">
+    <!-- 1. General Details -->
+    <div class="card">
+      <div class="card-title">1. Inspection Details</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="airfieldSelect">Airfield Location <span class="req">*</span></label>
+          <input type="text" id="airfieldSelect" placeholder="Enter airfield location..." required>
+        </div>
+        <div class="form-group">
+          <label for="weekEndingInput">Week Ending Date <span class="req">*</span></label>
+          <input type="date" id="weekEndingInput" required>
+        </div>
+        <div class="form-group">
+          <label for="employeeInput">Employee Name <span class="req">*</span></label>
+          <input type="text" id="employeeInput" placeholder="e.g. John Smith" required>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Checklist Items -->
+    <div class="card">
+      <div class="card-title">2. Maintenance Checklist</div>
+      
+      <div class="check-item" onclick="toggleCheck('check_grass')">
+        <div class="checkbox-custom" id="box_grass">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="check-text">
+          <strong>Grass & Vegetation Trimmed</strong>
+          <span>Runway strips, clear zones, taxiways & aprons cut and clear of overgrowth.</span>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck('check_windsock')">
+        <div class="checkbox-custom" id="box_windsock">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="check-text">
+          <strong>Windsock & Mast Condition</strong>
+          <span>Windsock intact, no tears, rotates freely on mast, illumination/markers functional.</span>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck('check_surface')">
+        <div class="checkbox-custom" id="box_surface">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="check-text">
+          <strong>Runway & Apron Surface</strong>
+          <span>Surface smooth, compact, free of potholes, major rutting, washaways, or loose stones.</span>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck('check_erosion')">
+        <div class="checkbox-custom" id="box_erosion">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="check-text">
+          <strong>Erosion & Drainage Inspection</strong>
+          <span>Side drains, culverts & shoulders checked; clear of silt, debris, or waterpooling.</span>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck('check_fod')">
+        <div class="checkbox-custom" id="box_fod">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="check-text">
+          <strong>FOD & Equipment Check</strong>
+          <span>Runway free of Foreign Object Debris; animal deterrents & maintenance tools secured.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Issue Assessment -->
+    <div class="card">
+      <div class="card-title">3. Issue Assessment</div>
+      <label style="font-size:12.5px; font-weight:700; color:#44546A; margin-bottom:8px; display:block;">
+        Overall Airfield Status <span class="req">*</span>
+      </label>
+      <div class="issue-selector">
+        <div class="issue-option selected-none" id="opt_none" onclick="selectIssue('none')">
+          <strong>No Issues</strong>
+          <span>Normal status</span>
+        </div>
+        <div class="issue-option" id="opt_minor" onclick="selectIssue('minor')">
+          <strong>Minor Issue</strong>
+          <span>Requires attention</span>
+        </div>
+        <div class="issue-option" id="opt_major" onclick="selectIssue('major')">
+          <strong>Major Issue</strong>
+          <span>Urgent / Hazard</span>
+        </div>
+      </div>
+
+      <div class="form-group" id="issueNoteGroup" style="display:none; margin-top:12px;">
+        <label for="issueNoteInput">Issue Description / Action Taken <span class="req">*</span></label>
+        <textarea id="issueNoteInput" rows="3" placeholder="Describe the defect, location on airfield, and immediate remediation..."></textarea>
+      </div>
+    </div>
+
+    <!-- 4. Photos -->
+    <div class="card">
+      <div class="card-title">
+        <span>4. Photo Evidence</span>
+        <span style="font-size:11px; text-transform:none; color:#6C757D;" id="photoCountLabel">0 / 12 photos</span>
+      </div>
+      <p style="font-size:12.5px; color:#5A6472; margin-top:0; margin-bottom:12px;">
+        Attach photos of any defects, windsock, runway surface, or maintenance completed.
+      </p>
+      <div class="photo-grid" id="photoGrid">
+        <label class="photo-add-btn" id="addPhotoBtn">
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Add Photo</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 5. Sign Off -->
+    <div class="card">
+      <div class="card-title">5. Sign Off</div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group">
+          <label for="signedDateInput">Sign Date <span class="req">*</span></label>
+          <input type="date" id="signedDateInput" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Signature <span class="req">*</span></label>
+        <div class="sig-container">
+          <canvas id="sigCanvas"></canvas>
+          <button type="button" class="sig-clear" onclick="clearSignature()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <button type="submit" class="submit-btn" id="submitBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <span>Submit Inspection Report</span>
+    </button>
+  </form>
+</main>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>App Settings</h2>
+      <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label for="accessKeyInput">Access Key (X-Airfield-Key)</label>
+      <input type="password" id="accessKeyInput" placeholder="Enter submit secret key...">
+      <span style="font-size:11.5px; color:#6C757D;">Used for submission verification if SUBMIT_KEY is configured on server.</span>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label for="mailUrlInput">Optional Direct Mail Server URL</label>
+      <input type="text" id="mailUrlInput" placeholder="e.g. https://mail.wilderness-air.com/send">
+      <span style="font-size:11.5px; color:#6C757D;">If configured, emails PDF report directly via SMTP backend.</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <a href="/admin.html" target="_blank" style="color:#2E75B6; font-size:13px; font-weight:700; text-decoration:none;">Go to Admin Register &rarr;</a>
+      <button type="button" class="submit-btn" style="width:auto; padding:8px 16px; font-size:13px;" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pending Queue Modal -->
+<div class="modal-overlay" id="queueModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Pending Inspection Queue</h2>
+      <button class="modal-close" onclick="closeQueueModal()">&times;</button>
+    </div>
+    <div id="queueList" style="margin-bottom:16px;"></div>
+    <button type="button" class="submit-btn" id="syncBtn" onclick="syncQueueNow()">
+      Sync Queued Reports Now
+    </button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// State
+const state = {
+  checks: {
+    check_grass: false,
+    check_windsock: false,
+    check_surface: false,
+    check_erosion: false,
+    check_fod: false,
+  },
+  issueType: 'none',
+  photos: [], // Array of { file: File, dataUrl: string }
+  signatureDataUrl: null,
+  isDrawing: false,
+};
+
+// DOM references
+const $ = (id) => document.getElementById(id);
+
+// Init
+window.addEventListener('DOMContentLoaded', () => {
+  initDates();
+  initSignature();
+  loadSettings();
+  updateQueueBadge();
+  initNetworkListeners();
+
+  // Register service worker if available
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+});
+
+function initDates() {
+  const today = new Date().toISOString().slice(0, 10);
+  $('weekEndingInput').value = today;
+  $('signedDateInput').value = today;
+}
+
+function initNetworkListeners() {
+  const updateStatus = () => {
+    const online = navigator.onLine;
+    const badge = $('statusBadge');
+    if (online) {
+      badge.className = 'badge badge-online';
+      badge.innerHTML = '<span class="dot dot-online"></span> <span id="statusText">Online</span>';
+      syncQueueNow();
+    } else {
+      badge.className = 'badge badge-offline';
+      badge.innerHTML = '<span class="dot dot-offline"></span> <span id="statusText">Offline</span>';
+    }
+  };
+  window.addEventListener('online', updateStatus);
+  window.addEventListener('offline', updateStatus);
+  updateStatus();
+}
+
+function showToast(msg) {
+  const toast = $('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// Checklist toggle
+function toggleCheck(key) {
+  state.checks[key] = !state.checks[key];
+  const boxKey = key.replace('check_', 'box_');
+  const el = $(boxKey).parentElement;
+  if (state.checks[key]) {
+    el.classList.add('checked');
+  } else {
+    el.classList.remove('checked');
+  }
+}
+
+// Issue selection
+function selectIssue(type) {
+  state.issueType = type;
+  ['none', 'minor', 'major'].forEach((t) => {
+    const el = $('opt_' + t);
+    if (t === type) {
+      el.className = `issue-option selected-${t}`;
+    } else {
+      el.className = 'issue-option';
+    }
+  });
+
+  const noteGroup = $('issueNoteGroup');
+  const noteInput = $('issueNoteInput');
+  if (type === 'none') {
+    noteGroup.style.display = 'none';
+    noteInput.required = false;
+  } else {
+    noteGroup.style.display = 'block';
+    noteInput.required = true;
+  }
+}
+
+// Photo handling
+function handlePhotoSelect(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  if (state.photos.length >= 12) {
+    showToast('Maximum 12 photos allowed');
+    return;
+  }
+
+  // Compress photo on canvas before adding
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1600;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+        else { w = Math.round((w * maxDim) / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      
+      canvas.toBlob((blob) => {
+        const compressedFile = new File([blob], file.name, { type: 'image/jpeg' });
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        state.photos.push({ file: compressedFile, dataUrl });
+        renderPhotos();
+      }, 'image/jpeg', 0.85);
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function renderPhotos() {
+  const grid = $('photoGrid');
+  const addBtn = $('addPhotoBtn');
+  
+  // Clear thumb items
+  grid.querySelectorAll('.photo-thumb').forEach(el => el.remove());
+
+  state.photos.forEach((p, idx) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    thumb.innerHTML = `
+      <img src="${p.dataUrl}" alt="Photo ${idx + 1}">
+      <button type="button" class="remove-btn" onclick="removePhoto(${idx})">&times;</button>
+    `;
+    grid.insertBefore(thumb, addBtn);
+  });
+
+  $('photoCountLabel').textContent = `${state.photos.length} / 12 photos`;
+  if (state.photos.length >= 12) addBtn.style.display = 'none';
+  else addBtn.style.display = 'flex';
+}
+
+function removePhoto(idx) {
+  state.photos.splice(idx, 1);
+  renderPhotos();
+}
+
+// Signature Canvas
+function initSignature() {
+  const canvas = $('sigCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1B2A3B';
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches ? e.touches[0] : e;
+    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+  }
+
+  function start(e) {
+    state.isDrawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+  function move(e) {
+    if (!state.isDrawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  function stop() {
+    if (state.isDrawing) {
+      state.isDrawing = false;
+      state.signatureDataUrl = canvas.toDataURL();
+    }
+  }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', stop);
+
+  canvas.addEventListener('touchstart', start);
+  canvas.addEventListener('touchmove', move);
+  window.addEventListener('touchend', stop);
+}
+
+function clearSignature() {
+  const canvas = $('sigCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  state.signatureDataUrl = null;
+}
+
+// Generate PDF
+function generatePDF(meta) {
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) return null;
+
+  const doc = new jsPDF();
+  
+  // Header Navy Bar
+  doc.setFillColor(27, 42, 59);
+  doc.rect(0, 0, 210, 28, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('WEEKLY AIRFIELD MAINTENANCE REPORT', 14, 18);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('WILDERNESS AIR SAFETY', 196, 18, { align: 'right' });
+
+  // Metadata Block
+  doc.setTextColor(27, 42, 59);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Airfield: ${meta.airfield}`, 14, 38);
+  doc.text(`Week Ending: ${meta.weekEnding}`, 120, 38);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Employee: ${meta.employee}`, 14, 45);
+  doc.text(`Completed: ${new Date(meta.completedAt).toLocaleString()}`, 120, 45);
+
+  doc.setDrawColor(226, 230, 235);
+  doc.line(14, 50, 196, 50);
+
+  // Maintenance Checklist Table
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Checklist Summary', 14, 58);
+
+  const items = [
+    ['Grass & Vegetation Trimmed', meta.checks.grass ? 'PASSED' : 'UNCHECKED'],
+    ['Windsock & Mast Condition', meta.checks.windsock ? 'PASSED' : 'UNCHECKED'],
+    ['Runway & Apron Surface', meta.checks.surface ? 'PASSED' : 'UNCHECKED'],
+    ['Erosion & Drainage Inspection', meta.checks.erosion ? 'PASSED' : 'UNCHECKED'],
+    ['FOD & Equipment Check', meta.checks.fod ? 'PASSED' : 'UNCHECKED'],
+  ];
+
+  let y = 66;
+  doc.setFontSize(10);
+  items.forEach(([label, status]) => {
+    doc.setFont('helvetica', 'normal');
+    doc.text(label, 16, y);
+    doc.setFont('helvetica', 'bold');
+    if (status === 'PASSED') doc.setTextColor(46, 96, 28);
+    else doc.setTextColor(180, 50, 50);
+    doc.text(status, 180, y, { align: 'right' });
+    doc.setTextColor(27, 42, 59);
+    y += 7;
+  });
+
+  doc.line(14, y + 2, 196, y + 2);
+  y += 10;
+
+  // Issue Assessment
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text(`Overall Airfield Issue Status: ${meta.issueType.toUpperCase()}`, 14, y);
+  y += 7;
+
+  if (meta.issueNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const splitNote = doc.splitTextToSize(`Notes: ${meta.issueNote}`, 180);
+    doc.text(splitNote, 14, y);
+    y += (splitNote.length * 6) + 4;
+  }
+
+  // Signature
+  y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(`Signed by: ${meta.signature} on ${meta.date}`, 14, y);
+
+  if (state.signatureDataUrl) {
+    try {
+      doc.addImage(state.signatureDataUrl, 'PNG', 14, y + 4, 50, 20);
+    } catch (e) {}
+  }
+
+  return doc.output('blob');
+}
+
+// Form Submission
+async function handleFormSubmit(e) {
+  e.preventDefault();
+
+  if (!state.signatureDataUrl && !$('employeeInput').value) {
+    showToast('Please provide an inspector signature');
+    return;
+  }
+
+  const submitBtn = $('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.querySelector('span').textContent = 'Generating & Submitting...';
+
+  const uuid = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+
+  const meta = {
+    id: uuid,
+    weekEnding: $('weekEndingInput').value,
+    airfield: $('airfieldSelect').value,
+    employee: $('employeeInput').value,
+    checks: state.checks,
+    issueType: state.issueType,
+    issueNote: $('issueNoteInput').value || '',
+    signature: $('employeeInput').value,
+    date: $('signedDateInput').value,
+    completedAt: new Date().toISOString(),
+  };
+
+  const pdfBlob = generatePDF(meta) || new Blob(['PDF Report'], { type: 'application/pdf' });
+
+  // Prepare FormData
+  const formData = new FormData();
+  formData.append('meta', JSON.stringify(meta));
+  if (pdfBlob) formData.append('pdf', pdfBlob, `inspection-${meta.airfield}-${meta.weekEnding}.pdf`);
+  
+  state.photos.forEach((p, i) => {
+    formData.append(`photo${i}`, p.file, `photo-${i + 1}.jpg`);
+  });
+
+  const accessKey = localStorage.getItem('wai_mail_key') || '';
+  const mailUrl = localStorage.getItem('wai_mail_url') || '';
+
+  // Attempt online submit
+  if (navigator.onLine) {
+    try {
+      let res;
+      if (mailUrl) {
+        // Send to mail backend
+        const mailFd = new FormData();
+        mailFd.append('to', 'safety@wildernessdestinations.com');
+        mailFd.append('subject', `Airfield Inspection: ${meta.airfield} (${meta.weekEnding})`);
+        mailFd.append('text', `Weekly inspection report for ${meta.airfield}.\nInspector: ${meta.employee}\nIssue: ${meta.issueType}`);
+        mailFd.append('pdf', pdfBlob, `inspection-${meta.airfield}.pdf`);
+        state.photos.forEach((p) => mailFd.append('photos', p.file));
+
+        res = await fetch(mailUrl, {
+          method: 'POST',
+          headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
+          body: mailFd,
+        });
+      } else {
+        // Send to primary Cloudflare Workers D1 + KV API
+        res = await fetch('/api/inspections', {
+          method: 'POST',
+          headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
+          body: formData,
+        });
+      }
+
+      if (res.ok) {
+        showToast('✓ Inspection submitted successfully!');
+        resetForm();
+        submitBtn.disabled = false;
+        submitBtn.querySelector('span').textContent = 'Submit Inspection Report';
+        return;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with ${res.status}`);
+      }
+    } catch (err) {
+      console.warn('Online submit failed, queueing offline:', err.message);
+      showToast('Submit failed online. Saved to offline queue.');
+    }
+  } else {
+    showToast('Offline mode: Saved report to pending queue.');
+  }
+
+  // Queue report offline in localStorage
+  saveToOfflineQueue({ meta, photosData: state.photos.map(p => p.dataUrl) });
+  resetForm();
+  submitBtn.disabled = false;
+  submitBtn.querySelector('span').textContent = 'Submit Inspection Report';
+}
+
+function saveToOfflineQueue(item) {
+  const queue = JSON.parse(localStorage.getItem('wai_pending_queue') || '[]');
+  queue.push(item);
+  localStorage.setItem('wai_pending_queue', JSON.stringify(queue));
+  updateQueueBadge();
+}
+
+function updateQueueBadge() {
+  const queue = JSON.parse(localStorage.getItem('wai_pending_queue') || '[]');
+  const btn = $('queueBtn');
+  const countSpan = $('queueCount');
+  if (queue.length > 0) {
+    btn.style.display = 'inline-flex';
+    countSpan.textContent = queue.length;
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+async function syncQueueNow() {
+  const queue = JSON.parse(localStorage.getItem('wai_pending_queue') || '[]');
+  if (queue.length === 0) return;
+
+  const syncBtn = $('syncBtn');
+  if (syncBtn) syncBtn.disabled = true;
+
+  let successCount = 0;
+  const remaining = [];
+
+  const accessKey = localStorage.getItem('wai_mail_key') || '';
+
+  for (const item of queue) {
+    try {
+      const pdfBlob = generatePDF(item.meta) || new Blob(['PDF Report'], { type: 'application/pdf' });
+      const formData = new FormData();
+      formData.append('meta', JSON.stringify(item.meta));
+      if (pdfBlob) formData.append('pdf', pdfBlob, `inspection-${item.meta.airfield}.pdf`);
+
+      const res = await fetch('/api/inspections', {
+        method: 'POST',
+        headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
+        body: formData,
+      });
+
+      if (res.ok) {
+        successCount++;
+      } else {
+        remaining.push(item);
+      }
+    } catch (e) {
+      remaining.push(item);
+    }
+  }
+
+  localStorage.setItem('wai_pending_queue', JSON.stringify(remaining));
+  updateQueueBadge();
+
+  if (successCount > 0) {
+    showToast(`Synced ${successCount} queued report(s)`);
+  }
+  if (syncBtn) syncBtn.disabled = false;
+  renderQueueList();
+}
+
+function resetForm() {
+  $('checklistForm').reset();
+  state.checks = { check_grass: false, check_windsock: false, check_surface: false, check_erosion: false, check_fod: false };
+  ['grass', 'windsock', 'surface', 'erosion', 'fod'].forEach(k => {
+    const el = $(`box_${k}`).parentElement;
+    el.classList.remove('checked');
+  });
+  selectIssue('none');
+  state.photos = [];
+  renderPhotos();
+  clearSignature();
+  initDates();
+}
+
+// Settings Modal
+function openSettingsModal() { $('settingsModal').classList.add('active'); }
+function closeSettingsModal() { $('settingsModal').classList.remove('active'); }
+function loadSettings() {
+  $('accessKeyInput').value = localStorage.getItem('wai_mail_key') || '';
+  $('mailUrlInput').value = localStorage.getItem('wai_mail_url') || '';
+}
+function saveSettings() {
+  localStorage.setItem('wai_mail_key', $('accessKeyInput').value.trim());
+  localStorage.setItem('wai_mail_url', $('mailUrlInput').value.trim());
+  showToast('Settings saved');
+  closeSettingsModal();
+}
+
+// Queue Modal
+function openQueueModal() {
+  renderQueueList();
+  $('queueModal').classList.add('active');
+}
+function closeQueueModal() { $('queueModal').classList.remove('active'); }
+function renderQueueList() {
+  const queue = JSON.parse(localStorage.getItem('wai_pending_queue') || '[]');
+  const list = $('queueList');
+  if (queue.length === 0) {
+    list.innerHTML = '<p style="text-align:center; color:#6C757D;">No pending inspections in queue.</p>';
+    closeQueueModal();
+    return;
+  }
+  list.innerHTML = queue.map((item, idx) => `
+    <div style="background:#F8FAFC; border:1px solid #E2E6EB; border-radius:8px; padding:10px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <strong style="display:block; font-size:13.5px;">${item.meta.airfield}</strong>
+        <span style="font-size:11.5px; color:#6C757D;">Week: ${item.meta.weekEnding} &bull; ${item.meta.employee}</span>
+      </div>
+      <button onclick="removeQueuedItem(${idx})" style="background:none; border:none; color:#C0392B; cursor:pointer; font-weight:bold;">&times;</button>
+    </div>
+  `).join('');
+}
+function removeQueuedItem(idx) {
+  const queue = JSON.parse(localStorage.getItem('wai_pending_queue') || '[]');
+  queue.splice(idx, 1);
+  localStorage.setItem('wai_pending_queue', JSON.stringify(queue));
+  updateQueueBadge();
+  renderQueueList();
+}
+</script>
+</body>
+</html>

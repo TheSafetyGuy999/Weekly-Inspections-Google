@@ -1,0 +1,18 @@
+# Cloudflare Pages response headers.
+#
+# The bundle is one large file that changes only on release, and the service
+# worker is what actually keeps it available offline. Let the browser
+# revalidate rather than serve a stale shell from HTTP cache.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# A service worker served from cache would pin an old release indefinitely.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Content-addressed by release; safe to hold on to.
+/icons/*
+  Cache-Control: public, max-age=604800
