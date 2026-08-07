@@ -159,8 +159,32 @@ export const notConfigured = () =>
     }
   );
 
-export function denyResponse(state) {
-  return state === 'unconfigured' ? notConfigured() : unauthorized();
+/**
+ * Denial for a request for the admin *page* rather than its data.
+ *
+ * The login form lives inside admin.html, so gating that page with the JSON
+ * 401 above would leave no way in at all — the page holding the only login UI
+ * would be the page you cannot reach without logging in. Send the browser's
+ * own Basic prompt instead, which needs no page to draw. Credentials entered
+ * there are replayed on the page's own fetches, so the in-page modal simply
+ * never has to appear.
+ *
+ * This carries www-authenticate where notConfigured() deliberately does not:
+ * here a password can be accepted, so asking for one is not a dead end.
+ */
+export const unauthorizedPage = () =>
+  new Response('Authentication required.\n', {
+    status: 401,
+    headers: {
+      'www-authenticate': 'Basic realm="Inspection Register", charset="UTF-8"',
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  });
+
+export function denyResponse(state, { challenge = false } = {}) {
+  if (state === 'unconfigured') return notConfigured();
+  return challenge ? unauthorizedPage() : unauthorized();
 }
 
 export async function requireAdmin(request, env) {

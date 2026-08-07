@@ -18,14 +18,20 @@ export async function onRequest(context) {
 
   const isApiAdmin = path.startsWith('/api/admin');
 
+  // The page itself, however it is addressed: assets answer /admin with
+  // admin.html, and both spellings have to be gated or the gate is decoration.
+  const isAdminPage =
+    path === '/admin' || path.startsWith('/admin.') || path.startsWith('/admin/');
+
   // Login/logout endpoints are public so authentication can take place
   if (path === '/api/admin/login' || path === '/api/admin/logout') {
     return next();
   }
 
-  if (isApiAdmin) {
+  if (isApiAdmin || isAdminPage) {
     const state = await adminState(request, env);
-    if (state !== 'ok') return denyResponse(state);
+    // A page denial has to offer a way in — see unauthorizedPage().
+    if (state !== 'ok') return denyResponse(state, { challenge: isAdminPage });
   }
 
   return next();
