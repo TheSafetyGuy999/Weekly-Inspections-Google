@@ -455,6 +455,11 @@ async function handleDeleteInspection(e) {
   } catch (ex) {
     err.hidden = false;
     err.textContent = ex.message;
+  } finally {
+    // In `finally`, not on each branch: the success path closed the modal
+    // without restoring the button, so it reopened still disabled and reading
+    // "Deleting..." — one deletion per page load, with nothing to explain why
+    // the second one would not go through.
     btn.disabled = false;
     btn.textContent = 'Delete';
   }
