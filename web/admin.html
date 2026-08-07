@@ -330,12 +330,15 @@ async function load() {
       $('rows').innerHTML = '';
       return;
     }
-    if (!res.ok) throw new Error('Server returned ' + res.status);
     const ct = res.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
       throw new Error('API route returned HTML instead of JSON. Ensure Worker functions are deployed.');
     }
-    data = await res.json();
+    const dataObj = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(dataObj.error || 'Server returned ' + res.status);
+    }
+    data = dataObj;
     $('loginModal').style.display = 'none';
   } catch (e) {
     $('rows').innerHTML = '';
