@@ -53,59 +53,62 @@ function sameDigest(a, b) {
  * Access is actually in front of the route — anyone can send a header. Only
  * turn it on once Access is deployed.
  */
-export async function verifyAdminCredentials(user, pass, env = {}) {
-  let defaultUser = env.ADMIN_USER || 'Safety';
-  let defaultPass = env.ADMIN_PASSWORD || 'password123';
-
+/**
+ * The credentials in force, or null when none are configured.
+ *
+ * A password changed from the admin panel is written to KV, so KV wins where
+ * it is set. It has to *replace* the secret rather than be accepted alongside
+ * it: accepting both means changing the password revokes nothing, and the
+ * value it was changed away from — the one committed to this repo's history —
+ * keeps working forever.
+ *
+ * There is no fallback value. A default that stands in for an unset secret is
+ * indistinguishable from a configured one at the login prompt, so a register
+ * nobody had secured yet would open to whoever knew the default. Returning
+ * null lets the caller shut the door and say why.
+ */
+async function adminCredentials(env) {
   let kvUser = null;
   let kvPass = null;
 
   if (env.FILES) {
     try {
-      kvPass = await env.FILES.get('config:admin_password');
       kvUser = await env.FILES.get('config:admin_user');
-    } catch (e) {
-      // Fall back
+      kvPass = await env.FILES.get('config:admin_password');
+    } catch {
+      // KV unreachable — fall back to the secrets rather than lock everyone out.
     }
   }
 
-  const u = (user || '').trim().toLowerCase();
-  const p = (pass || '').trim();
+  const user = kvUser || env.ADMIN_USER;
+  const pass = kvPass || env.ADMIN_PASSWORD;
+  return user && pass ? { user, pass } : null;
+}
 
-  // Check against env variables (Safety / password123)
-  const [gotU, wantEnvU, gotP, wantEnvP] = await Promise.all([
-    sha256(u),
-    sha256(defaultUser.trim().toLowerCase()),
-    sha256(p),
-    sha256(defaultPass.trim()),
+async function credentialsMatch(user, pass, want) {
+  const [gotU, wantU, gotP, wantP] = await Promise.all([
+    sha256((user || '').trim().toLowerCase()),
+    sha256(want.user.trim().toLowerCase()),
+    sha256((pass || '').trim()),
+    sha256(want.pass.trim()),
   ]);
+  return sameDigest(gotU, wantU) && sameDigest(gotP, wantP);
+}
 
-  if (sameDigest(gotU, wantEnvU) && sameDigest(gotP, wantEnvP)) {
-    return true;
-  }
-
-  // Check against KV stored credentials (if password was changed via admin panel)
-  if (kvPass || kvUser) {
-    const effectiveKvUser = (kvUser || defaultUser).trim().toLowerCase();
-    const effectiveKvPass = (kvPass || defaultPass).trim();
-
-    const [wantKvU, wantKvP] = await Promise.all([
-      sha256(effectiveKvUser),
-      sha256(effectiveKvPass),
-    ]);
-
-    if (sameDigest(gotU, wantKvU) && sameDigest(gotP, wantKvP)) {
-      return true;
-    }
-  }
-
-  return false;
+export async function verifyAdminCredentials(user, pass, env = {}) {
+  const want = await adminCredentials(env);
+  return want ? credentialsMatch(user, pass, want) : false;
 }
 
 export async function adminState(request, env) {
   if (env.TRUST_CF_ACCESS === 'true' && request.headers.get('cf-access-jwt-assertion')) {
     return 'ok';
   }
+
+  // Before reading the header, so an unconfigured Worker says so instead of
+  // rejecting a password it was never able to accept.
+  const want = await adminCredentials(env);
+  if (!want) return 'unconfigured';
 
   let header = request.headers.get('authorization') || '';
   if (!header) {
@@ -127,10 +130,7 @@ export async function adminState(request, env) {
   const split = decoded.indexOf(':');
   if (split < 0) return 'denied';
 
-  const user = decoded.slice(0, split);
-  const pass = decoded.slice(split + 1);
-
-  const ok = await verifyAdminCredentials(user, pass, env);
+  const ok = await credentialsMatch(decoded.slice(0, split), decoded.slice(split + 1), want);
   return ok ? 'ok' : 'denied';
 }
 
