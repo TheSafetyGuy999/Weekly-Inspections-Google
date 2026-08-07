@@ -1,6 +1,6 @@
 {
   // Must match the Worker that Workers Builds deploys to.
-  "name": "weekly-airfield-inspections",
+  "name": "weekly-inspections-google",
   "compatibility_date": "2026-01-01",
 
   // functions/ is Pages Functions source. `npm run build` compiles it here
