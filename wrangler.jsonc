@@ -7,6 +7,10 @@
   // with `wrangler pages functions build`; this is a directory, not a file.
   "main": "./web/_worker.js/index.js",
 
+  "build": {
+    "command": "npm run build"
+  },
+
   // The app itself. The ASSETS binding is what serves it once the Worker has
   // decided a request is not for the API.
   //
