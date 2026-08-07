@@ -10,7 +10,7 @@
  * BUILD_ID is replaced with the commit SHA at deploy time so that every release
  * mints a fresh cache and evicts the previous one.
  */
-const BUILD_ID = 'dev-20260807-v3';
+const BUILD_ID = '__BUILD_ID__';
 const CACHE = 'airfield-' + BUILD_ID;
 
 // './' and not './index.html': Cloudflare Pages answers /index.html with a 308

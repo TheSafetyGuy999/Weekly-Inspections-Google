@@ -336,6 +336,19 @@ async function load() {
       if (res.status === 503 || text.includes('inspection register is not configured')) {
         throw new Error('The inspection register is not configured. Please set ADMIN_USER and ADMIN_PASSWORD in Cloudflare Worker Variables & Secrets.');
       }
+      // A 200 of HTML means something answered with a page instead of the API:
+      // a static host serving its index.html fallback for every path. The
+      // register only exists on the Cloudflare Worker deployment — any other
+      // origin (an AI Studio preview, a plain file server) has no D1 behind it
+      // and never will, so say which page to open rather than sending the
+      // reader off to check a build that is probably fine.
+      if (res.ok && /^\s*<(!doctype|html)/i.test(text)) {
+        throw new Error(
+          `This page is not being served by the Cloudflare Worker — ${location.origin} answered /api/admin/inspections with a web page instead of data. ` +
+            'Static hosts (Google AI Studio previews, plain file servers) serve the files only; the register lives in the Worker. ' +
+            'Open /admin on the deployed Worker URL instead.'
+        );
+      }
       throw new Error(`API route returned non-JSON (${res.status} ${res.statusText}). Ensure Worker functions are built and deployed.`);
     }
     const dataObj = await res.json().catch(() => ({}));
