@@ -1,0 +1,14 @@
+# Local secrets for `npm run dev`. Copy to .dev.vars and fill in.
+#
+# .dev.vars is gitignored: real values belong here on your machine and in
+# `npx wrangler secret put <NAME>` for the deployed Worker, never in the repo.
+#
+# ADMIN_USER and ADMIN_PASSWORD are what /admin and /api/admin/* check. Leave
+# either blank and the register answers 503 to everyone, which is deliberate —
+# there is no default login to fall back to.
+ADMIN_USER=
+ADMIN_PASSWORD=
+
+# Guards POST /api/inspections. Blank is fine locally; unset in production
+# means anyone who finds the URL can file inspections.
+SUBMIT_KEY=

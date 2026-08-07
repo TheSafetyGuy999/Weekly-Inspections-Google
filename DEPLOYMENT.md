@@ -43,7 +43,14 @@ Set in the dashboard under **Settings → Variables and Secrets**, or
 | `ADMIN_PASSWORD` | **register locked to everyone** |
 
 Locked-out fails closed on purpose: being unable to read your own register is
-recoverable, publishing every inspection is not.
+recoverable, publishing every inspection is not. There is no default login
+standing in for an unset secret — one that opens the register to whoever knows
+the default is indistinguishable from a real password at the prompt.
+
+For local runs, `wrangler dev` reads the same names from `.dev.vars`. Copy
+`.dev.vars.example` to `.dev.vars` and fill it in; the file is gitignored, and
+should stay that way — it was committed once, which is how a working password
+reached this repo's history, where it cannot be removed from.
 
 `SUBMIT_KEY` must also be set in the app bundle (`const SUBMIT_KEY` near the
 top of the template in `web/index.html`) — it is public by necessity, since the

@@ -1,6 +1,11 @@
 node_modules/
 .env
 .env.local
+
+# Local Worker secrets for `wrangler dev`. Untracked because it is the file
+# ADMIN_PASSWORD actually goes in — it was committed once, which is how the
+# register's password reached this repo's history. Copy .dev.vars.example.
+.dev.vars
 npm-debug.log*
 .DS_Store
 .wrangler/
