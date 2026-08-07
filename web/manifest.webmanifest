@@ -1,0 +1,16 @@
+{
+  "name": "Airfield Maintenance | Wilderness Air",
+  "short_name": "Airfield",
+  "description": "Weekly airfield maintenance checklist for Wilderness Air lodge staff. Works offline and queues reports until connectivity returns.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1B2A3B",
+  "theme_color": "#1B2A3B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,28 @@
+import { adminState, denyResponse } from './_lib.js';
+
+/**
+ * Gate everything under /admin and /api/admin.
+ *
+ * The API routes check for themselves too, but admin.html is a static asset
+ * served by Pages without touching a function — so without this middleware the
+ * page itself would be readable by anyone. The page holds no data on its own,
+ * yet handing out the register's UI to the internet invites exactly the
+ * probing this is meant to stop.
+ *
+ * Everything else — the app, the service worker, the icons — passes straight
+ * through. The inspection form must never require a login.
+ */
+export async function onRequest(context) {
+  const { request, env, next } = context;
+  const path = new URL(request.url).pathname;
+
+  const isAdmin = path === '/admin' || path.startsWith('/admin.') ||
+    path.startsWith('/admin/') || path.startsWith('/api/admin');
+
+  if (isAdmin) {
+    const state = await adminState(request, env);
+    if (state !== 'ok') return denyResponse(state);
+  }
+
+  return next();
+}

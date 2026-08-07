@@ -1,0 +1,8 @@
+{
+  "name": "Weekly Airfield Inspections",
+  "description": "Mobile-first inspection checklist app for Wilderness Air airfield maintenance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

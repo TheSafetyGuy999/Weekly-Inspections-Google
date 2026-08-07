@@ -1,0 +1,51 @@
+{
+  // Must match the Worker that Workers Builds deploys to.
+  "name": "weekly-airfield-inspections",
+  "compatibility_date": "2026-01-01",
+
+  // functions/ is Pages Functions source. `npm run build` compiles it here
+  // with `wrangler pages functions build`; this is a directory, not a file.
+  "main": "./web/_worker.js",
+
+  // The app itself. The ASSETS binding is what serves it once the Worker has
+  // decided a request is not for the API.
+  //
+  // run_worker_first is load-bearing, not an optimisation. Workers serve static
+  // assets BEFORE running the Worker, so without this /admin is answered
+  // straight from assets and the auth middleware never runs — the register's
+  // page would be readable by anyone. Pages behaved the opposite way, which is
+  // exactly how this slipped through the migration.
+  //
+  // Everything else deliberately keeps the default (assets first), so the
+  // inspection app is served without paying for a Worker invocation.
+  "assets": {
+    "directory": "./web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/admin", "/admin.html", "/admin/*", "/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "airfield-inspections",
+      "database_id": "b0dca361-4307-49fd-9c7f-8f59631af397"
+    }
+  ],
+
+  // PDFs and photos. KV rather than R2 because the account is not entitled to
+  // R2 (API error 10042) and enabling it needs a dashboard subscription step.
+  // Keys keep the R2 layout, so moving over later is a swap, not a migration.
+  "kv_namespaces": [
+    {
+      "binding": "FILES",
+      "id": "670cd2049e1147fc8bccc58c2fbeaa42"
+    }
+  ]
+
+  // Secrets — set in the dashboard or with `npx wrangler secret put <NAME>`:
+  //   SUBMIT_KEY      guards POST /api/inspections.
+  //   ADMIN_USER      the Safety login for /admin and /api/admin/*.
+  //   ADMIN_PASSWORD  With either unset the register is locked to everyone.
+  // TRUST_CF_ACCESS=true additionally accepts Cloudflare Access; only set it
+  // once Access actually fronts the route, since anyone can send that header.
+}

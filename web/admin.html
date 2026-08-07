@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection Register | Wilderness Air</title>
+<meta name="theme-color" content="#1B2A3B">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#F2F4F6;color:#1B2A3B;
+       font-family:Calibri,"Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  header{background:#1B2A3B;color:#fff;box-shadow:0 1px 3px rgba(15,22,33,.18)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  header .wrap{display:flex;align-items:center;gap:14px;padding:14px 24px;min-height:56px;flex-wrap:wrap}
+  h1{font-size:19px;font-weight:700;margin:0}
+  .sub{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:#9DB0C4}
+  main{padding:20px 0 48px}
+  .card{background:#fff;border:1px solid #E2E6EB;border-radius:12px;padding:16px;margin-bottom:14px}
+  .label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#44546A;margin-bottom:10px}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .f label{display:block;font-size:12.5px;font-weight:600;color:#5A6472;margin-bottom:5px}
+  input,select{border:1px solid #D6DBE1;border-radius:8px;padding:9px 11px;font-size:14px;
+               color:#1B2A3B;font-family:inherit;background:#fff}
+  input:focus,select:focus{outline:none;border-color:#D4A017}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;padding:10px 16px;
+         font-size:13.5px;font-weight:700}
+  .gold{background:#D4A017;color:#1B2A3B}
+  .navy{background:#1B2A3B;color:#fff}
+  .ghost{background:#EEF2F6;color:#44546A}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .stat{background:#fff;border:1px solid #E2E6EB;border-radius:12px;padding:14px 16px}
+  .stat b{display:block;font-size:26px;line-height:1.1}
+  .stat span{font-size:12px;color:#6B7684}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.8px;color:#8A93A0;
+     padding:0 10px 8px;border-bottom:1px solid #E2E6EB;white-space:nowrap}
+  td{padding:11px 10px;border-bottom:1px solid #EEF1F4;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
+  .none{background:#EAF3E6;color:#4E7A38}
+  .minor{background:#FBF3DE;color:#9A7413}
+  .major{background:#FBE9E7;color:#C0392B}
+  .muted{color:#8A93A0}
+  a{color:#2E75B6;text-decoration:none;font-weight:600}
+  a:hover{text-decoration:underline}
+  .scroll{overflow-x:auto}
+  .checks{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:1px}
+  .empty{text-align:center;padding:44px 16px;color:#6B7684}
+  .err{background:#FBE9E7;border:1px solid #F3C4BE;color:#8C2B20;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13.5px}
+  @media(max-width:640px){.wrap{padding:0 14px}header .wrap{padding:12px 14px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div style="flex:1">
+    <h1>Inspection Register</h1>
+    <div class="sub">Weekly Airfield Maintenance</div>
+  </div>
+  <button class="gold" id="export">Export to Excel</button>
+</div></header>
+
+<main class="wrap">
+  <div id="error" class="err" hidden></div>
+
+  <div class="card">
+    <div class="label">Filters</div>
+    <div class="filters">
+      <div class="f"><label for="airfield">Airfield</label>
+        <select id="airfield"><option value="">All</option></select></div>
+      <div class="f"><label for="from">Week ending from</label><input type="date" id="from"></div>
+      <div class="f"><label for="to">to</label><input type="date" id="to"></div>
+      <div class="f"><label for="issue">Issues</label>
+        <select id="issue">
+          <option value="">Any</option>
+          <option value="none">No issues</option>
+          <option value="minor">Minor</option>
+          <option value="major">Major</option>
+        </select></div>
+      <button class="navy" id="apply">Apply</button>
+      <button class="ghost" id="reset">Reset</button>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <div class="label">Completed inspections</div>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>Week ending</th><th>Airfield</th><th>Employee</th>
+        <th title="Grass · Windsock · Surface · Erosion · FOD">Checks</th>
+        <th>Issue</th><th>Report</th><th>Photos</th><th>Completed</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div class="empty" id="empty" hidden>No inspections match these filters.</div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso);
+  return isNaN(d) ? iso : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+};
+const CHECKS = ['check_grass', 'check_windsock', 'check_surface', 'check_erosion', 'check_fod'];
+const ISSUE = { none: 'No issues', minor: 'Minor', major: 'Major' };
+
+function query() {
+  const p = new URLSearchParams();
+  for (const k of ['airfield', 'from', 'to', 'issue']) if ($(k).value) p.set(k, $(k).value);
+  return p.toString();
+}
+
+async function load() {
+  $('error').hidden = true;
+  let data;
+  try {
+    const res = await fetch('/api/admin/inspections?' + query(), { headers: { accept: 'application/json' } });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    $('error').hidden = false;
+    $('error').textContent = 'Could not load the register: ' + e.message;
+    return;
+  }
+
+  const list = data.inspections || [];
+
+  // Preserve the current selection — reloading must not silently widen a filter.
+  const sel = $('airfield');
+  const chosen = sel.value;
+  sel.innerHTML = '<option value="">All</option>' +
+    (data.airfields || []).map((a) => `<option${a === chosen ? ' selected' : ''}>${esc(a)}</option>`).join('');
+
+  const counts = { none: 0, minor: 0, major: 0 };
+  let missed = 0;
+  for (const r of list) {
+    counts[r.issue_type] = (counts[r.issue_type] || 0) + 1;
+    missed += CHECKS.filter((c) => !r[c]).length;
+  }
+  $('stats').innerHTML = [
+    ['Inspections', list.length, ''],
+    ['Airfields covered', new Set(list.map((r) => r.airfield)).size, ''],
+    ['Minor issues', counts.minor, 'minor'],
+    ['Major issues', counts.major, 'major'],
+    ['Unchecked items', missed, missed ? 'minor' : ''],
+  ].map(([label, n, tone]) =>
+    `<div class="stat"><b${tone ? ` class="${tone}" style="background:none;padding:0"` : ''}>${n}</b><span>${label}</span></div>`
+  ).join('');
+
+  $('empty').hidden = list.length > 0;
+  $('rows').innerHTML = list.map((r) => {
+    const checks = CHECKS.map((c) => (r[c] ? '✓' : '·')).join(' ');
+    const photos = r.photo_count
+      ? Array.from({ length: r.photo_count }, (_, i) =>
+          `<a href="/api/admin/file?key=${encodeURIComponent(`inspections/${r.id}/photo-${i + 1}.jpg`)}" target="_blank" rel="noopener">${i + 1}</a>`
+        ).join(' ')
+      : '<span class="muted">—</span>';
+    const pdf = r.pdf_key
+      ? `<a href="/api/admin/file?key=${encodeURIComponent(r.pdf_key)}" target="_blank" rel="noopener">PDF</a>`
+      : '<span class="muted">—</span>';
+    return `<tr>
+      <td>${fmt(r.week_ending)}</td>
+      <td><b>${esc(r.airfield)}</b></td>
+      <td>${esc(r.employee)}</td>
+      <td class="checks" title="Grass · Windsock · Surface · Erosion · FOD">${checks}</td>
+      <td><span class="pill ${r.issue_type}">${ISSUE[r.issue_type] || r.issue_type}</span>
+        ${r.issue_note ? `<div class="muted" style="margin-top:4px;max-width:280px">${esc(r.issue_note)}</div>` : ''}</td>
+      <td>${pdf}</td>
+      <td>${photos}</td>
+      <td class="muted">${fmt(r.completed_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+$('apply').onclick = load;
+$('reset').onclick = () => {
+  for (const k of ['airfield', 'from', 'to', 'issue']) $(k).value = '';
+  load();
+};
+$('export').onclick = () => { window.location = '/api/admin/export'; };
+load();
+</script>
+</body>
+</html>
