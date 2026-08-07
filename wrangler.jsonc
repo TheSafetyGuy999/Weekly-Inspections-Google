@@ -44,12 +44,11 @@
       "binding": "FILES",
       "id": "670cd2049e1147fc8bccc58c2fbeaa42"
     }
-  ],
+  ]
 
-  "vars": {
-    "ADMIN_USER": "Safety",
-    "ADMIN_PASSWORD": "***REMOVED***"
-  }
+  // No "vars" block, deliberately. ADMIN_USER and ADMIN_PASSWORD were set here
+  // as plaintext vars, which puts the register's password in the repo and in
+  // its history — readable by anyone with the clone. They are secrets now.
 
   // Secrets — set in the dashboard or with `npx wrangler secret put <NAME>`:
   //   SUBMIT_KEY      guards POST /api/inspections.
