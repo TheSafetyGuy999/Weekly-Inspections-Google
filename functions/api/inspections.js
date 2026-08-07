@@ -97,7 +97,7 @@ export async function onRequestPost({ request, env }) {
       meta.weekEnding,
       meta.airfield,
       meta.employee,
-      ...CHECKS.map((k) => (c[k] ? 1 : 0)),
+      ...CHECKS.map((k) => (c[k] || c['check_' + k] ? 1 : 0)),
       meta.issueType,
       meta.issueNote || null,
       meta.signature,

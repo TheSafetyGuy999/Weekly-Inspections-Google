@@ -203,8 +203,8 @@
       <div class="card-title">1. Inspection Details</div>
       <div class="form-grid">
         <div class="form-group">
-          <label for="airfieldSelect">Airfield Location <span class="req">*</span></label>
-          <input type="text" id="airfieldSelect" placeholder="Enter airfield location..." required>
+          <label for="airfieldSelect">Airfield <span class="req">*</span></label>
+          <input type="text" id="airfieldSelect" placeholder="Enter airfield..." required>
         </div>
         <div class="form-group">
           <label for="weekEndingInput">Week Ending Date <span class="req">*</span></label>
@@ -226,8 +226,8 @@
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <div class="check-text">
-          <strong>Grass & Vegetation Trimmed</strong>
-          <span>Runway strips, clear zones, taxiways & aprons cut and clear of overgrowth.</span>
+          <strong>Grass/vegetation trimmed around runway edges</strong>
+          <span>Runway strips, clear zones & edges cut and clear of overgrowth.</span>
         </div>
       </div>
 
@@ -236,8 +236,8 @@
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <div class="check-text">
-          <strong>Windsock & Mast Condition</strong>
-          <span>Windsock intact, no tears, rotates freely on mast, illumination/markers functional.</span>
+          <strong>Windsock condition (visible and functional)</strong>
+          <span>Windsock intact, clearly visible, rotates freely on mast, fully functional.</span>
         </div>
       </div>
 
@@ -246,8 +246,8 @@
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <div class="check-text">
-          <strong>Runway & Apron Surface</strong>
-          <span>Surface smooth, compact, free of potholes, major rutting, washaways, or loose stones.</span>
+          <strong>Runway surface (filled ruts/holes if needed)</strong>
+          <span>Surface smooth and compact with any ruts, potholes, or washaways filled as needed.</span>
         </div>
       </div>
 
@@ -256,8 +256,8 @@
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <div class="check-text">
-          <strong>Erosion & Drainage Inspection</strong>
-          <span>Side drains, culverts & shoulders checked; clear of silt, debris, or waterpooling.</span>
+          <strong>Erosion sources (checked for rocks migrating onto runway)</strong>
+          <span>Drainage and erosion areas checked for loose rocks or gravel migrating onto runway.</span>
         </div>
       </div>
 
@@ -266,8 +266,8 @@
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <div class="check-text">
-          <strong>FOD & Equipment Check</strong>
-          <span>Runway free of Foreign Object Debris; animal deterrents & maintenance tools secured.</span>
+          <strong>FOD removal tools available (broom, rake, bag)</strong>
+          <span>Required FOD tools (broom, rake, bag) available and runway clear of foreign object debris.</span>
         </div>
       </div>
     </div>
@@ -617,13 +617,28 @@ function generatePDF(meta) {
   // Header Navy Bar
   doc.setFillColor(27, 42, 59);
   doc.rect(0, 0, 210, 28, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('WEEKLY AIRFIELD MAINTENANCE REPORT', 14, 18);
 
-  doc.setFontSize(9);
+  // Embed Logo
+  const logoImg = document.querySelector('.logo');
+  let titleX = 14;
+  if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+    try {
+      const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+      const logoH = 16;
+      const logoW = Math.min(logoH * aspect, 45);
+      doc.addImage(logoImg, 'PNG', 12, 6, logoW, logoH);
+      titleX = 12 + logoW + 5;
+    } catch (e) {
+      console.warn('Could not embed logo in PDF:', e);
+    }
+  }
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(titleX > 20 ? 12 : 14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('WEEKLY AIRFIELD MAINTENANCE REPORT', titleX, 18);
+
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.text('WILDERNESS AIR SAFETY', 196, 18, { align: 'right' });
 
@@ -646,12 +661,15 @@ function generatePDF(meta) {
   doc.setFontSize(12);
   doc.text('Checklist Summary', 14, 58);
 
+  const c = meta.checks || {};
+  const isChecked = (key) => Boolean(c[key] || c['check_' + key]);
+
   const items = [
-    ['Grass & Vegetation Trimmed', meta.checks.grass ? 'PASSED' : 'UNCHECKED'],
-    ['Windsock & Mast Condition', meta.checks.windsock ? 'PASSED' : 'UNCHECKED'],
-    ['Runway & Apron Surface', meta.checks.surface ? 'PASSED' : 'UNCHECKED'],
-    ['Erosion & Drainage Inspection', meta.checks.erosion ? 'PASSED' : 'UNCHECKED'],
-    ['FOD & Equipment Check', meta.checks.fod ? 'PASSED' : 'UNCHECKED'],
+    ['Grass/vegetation trimmed around runway edges', isChecked('grass') ? 'PASSED' : 'UNCHECKED'],
+    ['Windsock condition (visible and functional)', isChecked('windsock') ? 'PASSED' : 'UNCHECKED'],
+    ['Runway surface (filled ruts/holes if needed)', isChecked('surface') ? 'PASSED' : 'UNCHECKED'],
+    ['Erosion sources (checked for rocks migrating onto runway)', isChecked('erosion') ? 'PASSED' : 'UNCHECKED'],
+    ['FOD removal tools available (broom, rake, bag)', isChecked('fod') ? 'PASSED' : 'UNCHECKED'],
   ];
 
   let y = 66;
@@ -747,32 +765,32 @@ async function handleFormSubmit(e) {
   // Attempt online submit
   if (navigator.onLine) {
     try {
-      let res;
-      if (mailUrl) {
-        // Send to mail backend
-        const mailFd = new FormData();
-        mailFd.append('to', 'safety@wildernessdestinations.com');
-        mailFd.append('subject', `Airfield Inspection: ${meta.airfield} (${meta.weekEnding})`);
-        mailFd.append('text', `Weekly inspection report for ${meta.airfield}.\nInspector: ${meta.employee}\nIssue: ${meta.issueType}`);
-        mailFd.append('pdf', pdfBlob, `inspection-${meta.airfield}.pdf`);
-        state.photos.forEach((p) => mailFd.append('photos', p.file));
-
-        res = await fetch(mailUrl, {
-          method: 'POST',
-          headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
-          body: mailFd,
-        });
-      } else {
-        // Send to primary Cloudflare Workers D1 + KV API
-        res = await fetch('/api/inspections', {
-          method: 'POST',
-          headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
-          body: formData,
-        });
-      }
+      // Primary D1 + KV submission
+      const res = await fetch('/api/inspections', {
+        method: 'POST',
+        headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
+        body: formData,
+      });
 
       if (res.ok) {
-        showToast('✓ Inspection submitted successfully!');
+        // Optional secondary mail notification
+        if (mailUrl) {
+          try {
+            const mailFd = new FormData();
+            mailFd.append('to', 'safety@wildernessdestinations.com');
+            mailFd.append('subject', `Airfield Inspection: ${meta.airfield} (${meta.weekEnding})`);
+            mailFd.append('text', `Weekly inspection report for ${meta.airfield}.\nInspector: ${meta.employee}\nIssue: ${meta.issueType}`);
+            mailFd.append('pdf', pdfBlob, `inspection-${meta.airfield}.pdf`);
+            state.photos.forEach((p) => mailFd.append('photos', p.file));
+            fetch(mailUrl, {
+              method: 'POST',
+              headers: accessKey ? { 'X-Airfield-Key': accessKey } : {},
+              body: mailFd,
+            }).catch(() => {});
+          } catch (e) {}
+        }
+
+        showToast('✓ Inspection submitted and saved to database!');
         resetForm();
         submitBtn.disabled = false;
         submitBtn.querySelector('span').textContent = 'Submit Inspection Report';

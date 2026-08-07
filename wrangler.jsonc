@@ -40,7 +40,12 @@
       "binding": "FILES",
       "id": "670cd2049e1147fc8bccc58c2fbeaa42"
     }
-  ]
+  ],
+
+  "vars": {
+    "ADMIN_USER": "Safety",
+    "ADMIN_PASSWORD": "password123"
+  }
 
   // Secrets — set in the dashboard or with `npx wrangler secret put <NAME>`:
   //   SUBMIT_KEY      guards POST /api/inspections.

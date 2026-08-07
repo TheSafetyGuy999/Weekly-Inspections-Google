@@ -16,10 +16,14 @@ export async function onRequest(context) {
   const { request, env, next } = context;
   const path = new URL(request.url).pathname;
 
-  const isAdmin = path === '/admin' || path.startsWith('/admin.') ||
-    path.startsWith('/admin/') || path.startsWith('/api/admin');
+  const isApiAdmin = path.startsWith('/api/admin');
 
-  if (isAdmin) {
+  // Login/logout endpoints are public so authentication can take place
+  if (path === '/api/admin/login' || path === '/api/admin/logout') {
+    return next();
+  }
+
+  if (isApiAdmin) {
     const state = await adminState(request, env);
     if (state !== 'ok') return denyResponse(state);
   }

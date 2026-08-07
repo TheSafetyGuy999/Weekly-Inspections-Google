@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "sh tools/stamp-sw.sh && wrangler pages functions build --outdir=web/_worker.js/",
+    "build": "sh tools/stamp-sw.sh && wrangler pages functions build --outdir=web/_worker.js/ && mkdir -p dist && cp -r web/* dist/",
     "postinstall": "npm run build",
     "dev": "npm run build && wrangler d1 execute airfield-inspections --local --file=db/schema.sql && wrangler dev --port 3000 --ip 0.0.0.0",
     "check": "npm run build && wrangler deploy --dry-run"
