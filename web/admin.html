@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inspection Register | Wilderness Air</title>
+<title>Inspection Register | Wilderness Air Admin</title>
 <meta name="theme-color" content="#1B2A3B">
 <style>
   *{box-sizing:border-box}
@@ -27,6 +27,8 @@
   .gold{background:#D4A017;color:#1B2A3B}
   .navy{background:#1B2A3B;color:#fff}
   .ghost{background:#EEF2F6;color:#44546A}
+  .outline{background:transparent;border:1px solid rgba(255,255,255,0.3);color:#fff}
+  .outline:hover{background:rgba(255,255,255,0.1)}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
   .stat{background:#fff;border:1px solid #E2E6EB;border-radius:12px;padding:14px 16px}
   .stat b{display:block;font-size:26px;line-height:1.1}
@@ -47,17 +49,108 @@
   .checks{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:1px}
   .empty{text-align:center;padding:44px 16px;color:#6B7684}
   .err{background:#FBE9E7;border:1px solid #F3C4BE;color:#8C2B20;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13.5px}
+
+  /* Login Overlay */
+  .login-overlay{position:fixed;inset:0;background:rgba(27,42,59,0.85);backdrop-filter:blur(4px);
+                 display:flex;align-items:center;justify-content:center;z-index:999;padding:16px}
+  .login-card{background:#fff;border-radius:16px;padding:28px;max-width:380px;width:100%;
+              box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04)}
+  .login-card h2{margin:0 0 6px;font-size:20px;color:#1B2A3B}
+  .login-card p{margin:0 0 20px;font-size:13px;color:#5A6472}
+  .login-group{margin-bottom:14px}
+  .login-group label{display:block;font-size:12px;font-weight:700;color:#44546A;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.8px}
+  .login-group input{width:100%}
+  .login-btn{width:100%;padding:12px;margin-top:8px;font-size:14px;background:#1B2A3B;color:#fff}
+  .login-btn:hover{background:#2A3E54}
+  .login-err{color:#C0392B;font-size:12.5px;margin-top:10px;text-align:center}
+  .credentials-hint{margin-top:16px;padding:10px;background:#F2F4F6;border-radius:8px;font-size:11.5px;color:#5A6472;text-align:center}
+
   @media(max-width:640px){.wrap{padding:0 14px}header .wrap{padding:12px 14px}}
 </style>
 </head>
 <body>
-<header><div class="wrap">
-  <div style="flex:1">
-    <h1>Inspection Register</h1>
-    <div class="sub">Weekly Airfield Maintenance</div>
+
+<div id="loginModal" class="login-overlay">
+  <div class="login-card">
+    <h2>Admin Login</h2>
+    <p>Enter your Wilderness Air admin credentials to access the register.</p>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="login-group">
+        <label for="usernameInput">Username</label>
+        <input type="text" id="usernameInput" value="Safety" required placeholder="Username">
+      </div>
+      <div class="login-group">
+        <label for="passwordInput">Password</label>
+        <input type="password" id="passwordInput" value="" autocomplete="current-password" required placeholder="Password">
+      </div>
+      <button type="submit" id="loginBtn" class="navy login-btn">Log In</button>
+      <div id="loginError" class="login-err" hidden></div>
+      <div class="credentials-hint">Default credentials: <b>Safety</b> / <b>***REMOVED***</b></div>
+    </form>
   </div>
-  <button class="gold" id="export">Export to Excel</button>
-</div></header>
+</div>
+
+<div id="changePassModal" class="login-overlay" style="display:none;">
+  <div class="login-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2 style="margin:0;">Change Password</h2>
+      <button type="button" onclick="closeChangePasswordModal()" style="background:none; border:none; font-size:20px; color:#5A6472; cursor:pointer;">&times;</button>
+    </div>
+    <p>Enter your current admin password and choose a new password.</p>
+    <form id="changePassForm" onsubmit="handleChangePassword(event)">
+      <div class="login-group">
+        <label for="oldPassInput">Current Password</label>
+        <input type="password" id="oldPassInput" required placeholder="Enter current password">
+      </div>
+      <div class="login-group">
+        <label for="newPassInput">New Password</label>
+        <input type="password" id="newPassInput" required minlength="6" placeholder="Enter new password (min 6 chars)">
+      </div>
+      <div class="login-group">
+        <label for="confirmPassInput">Confirm New Password</label>
+        <input type="password" id="confirmPassInput" required minlength="6" placeholder="Re-enter new password">
+      </div>
+      <button type="submit" id="changePassBtn" class="navy login-btn">Update Password</button>
+      <div id="changePassError" class="login-err" hidden></div>
+      <div id="changePassSuccess" style="color:#2E601C; font-size:12.5px; margin-top:10px; text-align:center; font-weight:bold;" hidden></div>
+    </form>
+  </div>
+</div>
+
+<div id="deleteModal" class="login-overlay" style="display:none;">
+  <div class="login-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2 style="margin:0; color:#C0392B;">Delete Inspection</h2>
+      <button type="button" onclick="closeDeleteModal()" style="background:none; border:none; font-size:20px; color:#5A6472; cursor:pointer;">&times;</button>
+    </div>
+    <p>Are you sure you want to delete the inspection for <strong id="deleteAirfield"></strong> (<span id="deleteWeek"></span>)?</p>
+    <p style="font-size:12px; color:#8A93A0; margin-top:-8px; margin-bottom:16px;">This action is permanent and cannot be undone.</p>
+    <form id="deleteForm" onsubmit="handleDeleteInspection(event)">
+      <input type="hidden" id="deleteId">
+      <div class="login-group">
+        <label for="deletePassInput">Admin Password</label>
+        <input type="password" id="deletePassInput" required placeholder="Enter admin password to confirm">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button type="submit" id="deleteConfirmBtn" class="login-btn" style="background:#C0392B; color:#FFF; flex:1;">Delete</button>
+        <button type="button" onclick="closeDeleteModal()" class="outline" style="flex:1;">Cancel</button>
+      </div>
+      <div id="deleteError" class="login-err" hidden></div>
+    </form>
+  </div>
+</div>
+
+<header>
+  <div class="wrap">
+    <div style="flex:1">
+      <h1>Inspection Register</h1>
+      <div class="sub">Weekly Airfield Maintenance</div>
+    </div>
+    <button class="gold" id="export">Export to Excel</button>
+    <button class="outline" onclick="openChangePasswordModal()">Change Password</button>
+    <button class="outline" id="logoutBtn" onclick="handleLogout()">Log Out</button>
+  </div>
+</header>
 
 <main class="wrap">
   <div id="error" class="err" hidden></div>
@@ -88,8 +181,8 @@
     <div class="scroll"><table>
       <thead><tr>
         <th>Week ending</th><th>Airfield</th><th>Employee</th>
-        <th title="Grass · Windsock · Surface · Erosion · FOD">Checks</th>
-        <th>Issue</th><th>Report</th><th>Photos</th><th>Completed</th>
+        <th title="Grass/vegetation · Windsock condition · Runway surface · Erosion sources · FOD tools">Checks</th>
+        <th>Issue</th><th>Report</th><th>Photos</th><th>Completed</th><th>Actions</th>
       </tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
@@ -115,14 +208,133 @@ function query() {
   return p.toString();
 }
 
+async function handleLogin(e) {
+  e.preventDefault();
+  const user = $('usernameInput').value;
+  const pass = $('passwordInput').value;
+  const btn = $('loginBtn');
+  const err = $('loginError');
+
+  btn.disabled = true;
+  btn.textContent = 'Authenticating...';
+  err.hidden = true;
+
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+
+    if (res.ok) {
+      $('loginModal').style.display = 'none';
+      $('passwordInput').value = '';
+      btn.disabled = false;
+      btn.textContent = 'Log In';
+      load();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Invalid credentials');
+    }
+  } catch (ex) {
+    err.hidden = false;
+    err.textContent = ex.message;
+    btn.disabled = false;
+    btn.textContent = 'Log In';
+  }
+}
+
+async function handleLogout() {
+  await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
+  $('passwordInput').value = '';
+  $('loginModal').style.display = 'flex';
+}
+
+function openChangePasswordModal() {
+  $('oldPassInput').value = '';
+  $('newPassInput').value = '';
+  $('confirmPassInput').value = '';
+  $('changePassError').hidden = true;
+  $('changePassSuccess').hidden = true;
+  $('changePassModal').style.display = 'flex';
+}
+
+function closeChangePasswordModal() {
+  $('changePassModal').style.display = 'none';
+}
+
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const oldPass = $('oldPassInput').value;
+  const newPass = $('newPassInput').value;
+  const confirmPass = $('confirmPassInput').value;
+  const btn = $('changePassBtn');
+  const err = $('changePassError');
+  const succ = $('changePassSuccess');
+
+  err.hidden = true;
+  succ.hidden = true;
+
+  if (newPass !== confirmPass) {
+    err.hidden = false;
+    err.textContent = 'New passwords do not match';
+    return;
+  }
+
+  if (newPass.length < 6) {
+    err.hidden = false;
+    err.textContent = 'New password must be at least 6 characters long';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Updating...';
+
+  try {
+    const res = await fetch('/api/admin/change-password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      succ.hidden = false;
+      succ.textContent = 'Password updated successfully!';
+      btn.disabled = false;
+      btn.textContent = 'Update Password';
+      setTimeout(() => {
+        closeChangePasswordModal();
+      }, 1500);
+    } else {
+      throw new Error(data.error || 'Failed to change password');
+    }
+  } catch (ex) {
+    err.hidden = false;
+    err.textContent = ex.message;
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+  }
+}
+
 async function load() {
   $('error').hidden = true;
+  $('rows').innerHTML = '<tr><td colspan="9" style="text-align:center; padding:32px; color:#8A93A0;">Loading inspections...</td></tr>';
   let data;
   try {
     const res = await fetch('/api/admin/inspections?' + query(), { headers: { accept: 'application/json' } });
+    if (res.status === 401) {
+      $('passwordInput').value = '';
+      $('loginModal').style.display = 'flex';
+      $('rows').innerHTML = '';
+      return;
+    }
     if (!res.ok) throw new Error('Server returned ' + res.status);
     data = await res.json();
+    $('loginModal').style.display = 'none';
   } catch (e) {
+    $('rows').innerHTML = '';
     $('error').hidden = false;
     $('error').textContent = 'Could not load the register: ' + e.message;
     return;
@@ -167,14 +379,63 @@ async function load() {
       <td>${fmt(r.week_ending)}</td>
       <td><b>${esc(r.airfield)}</b></td>
       <td>${esc(r.employee)}</td>
-      <td class="checks" title="Grass · Windsock · Surface · Erosion · FOD">${checks}</td>
+      <td class="checks" title="Grass/vegetation · Windsock condition · Runway surface · Erosion sources · FOD tools">${checks}</td>
       <td><span class="pill ${r.issue_type}">${ISSUE[r.issue_type] || r.issue_type}</span>
         ${r.issue_note ? `<div class="muted" style="margin-top:4px;max-width:280px">${esc(r.issue_note)}</div>` : ''}</td>
       <td>${pdf}</td>
       <td>${photos}</td>
       <td class="muted">${fmt(r.completed_at)}</td>
+      <td><button type="button" class="outline" onclick="openDeleteModal('${r.id}', '${esc(r.airfield)}', '${r.week_ending}')" style="padding:3px 8px; color:#C0392B; border-color:#E74C3C; font-size:11.5px; border-radius:4px; cursor:pointer;" title="Delete this inspection">Delete</button></td>
     </tr>`;
   }).join('');
+}
+
+function openDeleteModal(id, airfield, week) {
+  $('deleteId').value = id;
+  $('deleteAirfield').textContent = airfield;
+  $('deleteWeek').textContent = fmt(week);
+  $('deletePassInput').value = '';
+  $('deleteError').hidden = true;
+  $('deleteModal').style.display = 'flex';
+  setTimeout(() => $('deletePassInput').focus(), 100);
+}
+
+function closeDeleteModal() {
+  $('deleteModal').style.display = 'none';
+}
+
+async function handleDeleteInspection(e) {
+  e.preventDefault();
+  const id = $('deleteId').value;
+  const password = $('deletePassInput').value;
+  const btn = $('deleteConfirmBtn');
+  const err = $('deleteError');
+
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  try {
+    const res = await fetch('/api/admin/inspections', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, password })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      closeDeleteModal();
+      load();
+    } else {
+      throw new Error(data.error || 'Failed to delete inspection');
+    }
+  } catch (ex) {
+    err.hidden = false;
+    err.textContent = ex.message;
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
 }
 
 $('apply').onclick = load;

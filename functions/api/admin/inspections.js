@@ -1,4 +1,4 @@
-import { json, requireAdmin } from '../../_lib.js';
+import { json, requireAdmin, verifyAdminCredentials, isUuid } from '../../_lib.js';
 
 /**
  * GET /api/admin/inspections — the register, newest first.
@@ -60,3 +60,85 @@ export async function onRequestGet({ request, env }) {
     airfields: airfields.map((r) => r.airfield),
   });
 }
+
+/**
+ * DELETE /api/admin/inspections — Delete an inspection by ID after verifying the admin password.
+ * Body: { id, password }
+ */
+export async function onRequestDelete({ request, env }) {
+  const denied = await requireAdmin(request, env);
+  if (denied) return denied;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Invalid JSON payload' }, 400);
+  }
+
+  const id = body.id || '';
+  const password = body.password || '';
+
+  if (!id || !isUuid(id)) {
+    return json({ error: 'Valid inspection ID is required' }, 400);
+  }
+
+  if (!password) {
+    return json({ error: 'Admin password is required to delete an inspection' }, 400);
+  }
+
+  // Extract username from session cookie/authorization
+  let header = request.headers.get('authorization') || '';
+  if (!header) {
+    const cookie = request.headers.get('cookie') || '';
+    const match = cookie.match(/admin_session=([^;]+)/);
+    if (match) {
+      header = 'Basic ' + decodeURIComponent(match[1]);
+    }
+  }
+
+  let username = 'Safety';
+  if (/^Basic\s/i.test(header)) {
+    try {
+      const decoded = atob(header.replace(/^Basic\s+/i, ''));
+      const split = decoded.indexOf(':');
+      if (split >= 0) username = decoded.slice(0, split);
+    } catch {}
+  }
+
+  // Verify entered admin password
+  const isValid = await verifyAdminCredentials(username, password, env);
+  if (!isValid) {
+    return json({ error: 'Incorrect admin password. Deletion cancelled.' }, 401);
+  }
+
+  // Check if inspection exists
+  const { results } = await env.DB.prepare('select pdf_key from inspections where id = ?').bind(id).all();
+  if (!results || results.length === 0) {
+    return json({ error: 'Inspection not found' }, 404);
+  }
+
+  const pdfKey = results[0].pdf_key;
+
+  // Delete from DB
+  await env.DB.prepare('delete from inspections where id = ?').bind(id).run();
+
+  // Delete associated photos if any
+  try {
+    await env.DB.prepare('delete from inspection_photos where inspection_id = ?').bind(id).run();
+  } catch (e) {
+    // ignore if table doesn't exist
+  }
+
+  // Delete stored PDF if key exists
+  if (pdfKey && env.FILES) {
+    try {
+      await env.FILES.delete(pdfKey);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return json({ ok: true, message: 'Inspection deleted successfully' });
+}
+

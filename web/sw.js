@@ -10,7 +10,7 @@
  * BUILD_ID is replaced with the commit SHA at deploy time so that every release
  * mints a fresh cache and evicts the previous one.
  */
-const BUILD_ID = 'dev-20260807';
+const BUILD_ID = 'dev-20260807-v3';
 const CACHE = 'airfield-' + BUILD_ID;
 
 // './' and not './index.html': Cloudflare Pages answers /index.html with a 308
@@ -57,6 +57,10 @@ self.addEventListener('fetch', (event) => {
   // backend and must fail loudly so the app can queue the report instead.
   if (req.method !== 'GET') return;
   if (new URL(req.url).origin !== self.location.origin) return;
+
+  const url = new URL(req.url);
+  // Never intercept API endpoints or admin routes in the Service Worker
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin')) return;
 
   // Navigations always resolve to the app shell, online or not.
   if (req.mode === 'navigate') {

@@ -53,17 +53,69 @@ function sameDigest(a, b) {
  * Access is actually in front of the route — anyone can send a header. Only
  * turn it on once Access is deployed.
  */
+export async function verifyAdminCredentials(user, pass, env = {}) {
+  let defaultUser = env.ADMIN_USER || 'Safety';
+  let defaultPass = env.ADMIN_PASSWORD || '***REMOVED***';
+
+  let kvUser = null;
+  let kvPass = null;
+
+  if (env.FILES) {
+    try {
+      kvPass = await env.FILES.get('config:admin_password');
+      kvUser = await env.FILES.get('config:admin_user');
+    } catch (e) {
+      // Fall back
+    }
+  }
+
+  const u = (user || '').trim().toLowerCase();
+  const p = (pass || '').trim();
+
+  // Check against env variables (Safety / ***REMOVED***)
+  const [gotU, wantEnvU, gotP, wantEnvP] = await Promise.all([
+    sha256(u),
+    sha256(defaultUser.trim().toLowerCase()),
+    sha256(p),
+    sha256(defaultPass.trim()),
+  ]);
+
+  if (sameDigest(gotU, wantEnvU) && sameDigest(gotP, wantEnvP)) {
+    return true;
+  }
+
+  // Check against KV stored credentials (if password was changed via admin panel)
+  if (kvPass || kvUser) {
+    const effectiveKvUser = (kvUser || defaultUser).trim().toLowerCase();
+    const effectiveKvPass = (kvPass || defaultPass).trim();
+
+    const [wantKvU, wantKvP] = await Promise.all([
+      sha256(effectiveKvUser),
+      sha256(effectiveKvPass),
+    ]);
+
+    if (sameDigest(gotU, wantKvU) && sameDigest(gotP, wantKvP)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function adminState(request, env) {
-  if (env.ALLOW_INSECURE_ADMIN === 'true') return 'ok'; // local dev only
   if (env.TRUST_CF_ACCESS === 'true' && request.headers.get('cf-access-jwt-assertion')) {
     return 'ok';
   }
-  // Reported separately from a wrong password. Both used to answer with the
-  // same bare 401, so an unconfigured Worker looked exactly like mistyped
-  // credentials — the browser just re-prompts forever and nothing says why.
-  if (!env.ADMIN_USER || !env.ADMIN_PASSWORD) return 'unconfigured';
 
-  const header = request.headers.get('authorization') || '';
+  let header = request.headers.get('authorization') || '';
+  if (!header) {
+    const cookie = request.headers.get('cookie') || '';
+    const match = cookie.match(/admin_session=([^;]+)/);
+    if (match) {
+      header = 'Basic ' + decodeURIComponent(match[1]);
+    }
+  }
+
   if (!/^Basic\s/i.test(header)) return 'denied';
 
   let decoded;
@@ -75,24 +127,18 @@ export async function adminState(request, env) {
   const split = decoded.indexOf(':');
   if (split < 0) return 'denied';
 
-  const [gotUser, wantUser, gotPass, wantPass] = await Promise.all([
-    sha256(decoded.slice(0, split)),
-    sha256(env.ADMIN_USER),
-    sha256(decoded.slice(split + 1)),
-    sha256(env.ADMIN_PASSWORD),
-  ]);
-  // Both compared every time — no early return that would reveal which half
-  // was wrong.
-  const userOk = sameDigest(gotUser, wantUser);
-  const passOk = sameDigest(gotPass, wantPass);
-  return userOk && passOk ? 'ok' : 'denied';
+  const user = decoded.slice(0, split);
+  const pass = decoded.slice(split + 1);
+
+  const ok = await verifyAdminCredentials(user, pass, env);
+  return ok ? 'ok' : 'denied';
 }
 
 export const unauthorized = () =>
-  new Response('Authentication required.', {
+  new Response(JSON.stringify({ error: 'Authentication required' }), {
     status: 401,
     headers: {
-      'www-authenticate': 'Basic realm="Inspection Register", charset="UTF-8"',
+      'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
     },
   });
