@@ -11,25 +11,23 @@ set -e
 
 BUILD_ID=$(echo "${WORKERS_CI_COMMIT_SHA:-${CF_PAGES_COMMIT_SHA:-dev-$(date +%Y%m%d%H%M%S)}}" | cut -c1-12)
 
-# A stamped value committed back into web/sw.js is the failure this script
-# exists to prevent, and it is silent: the substitution below matches nothing,
-# the check at the end passes, and every release ships the same cache name, so
-# installed devices keep serving the release that was current when the value
-# was committed. Refuse to build instead.
-if ! grep -q "__BUILD_ID__" web/sw.js; then
-  echo "error: web/sw.js has no __BUILD_ID__ placeholder — a stamped build was committed." >&2
-  echo "       restore: const BUILD_ID = '__BUILD_ID__';" >&2
-  exit 1
-fi
-
-sed -i.bak "s/__BUILD_ID__/${BUILD_ID}/" web/sw.js
+# Rewrite whatever the line currently holds rather than substituting the
+# placeholder, because by the time this runs the placeholder may already be
+# gone and the difference is invisible: a stamped value was once committed
+# back into web/sw.js (2f578ba), and `postinstall` runs this build before the
+# build command runs it again. A placeholder-only substitution is a silent
+# no-op in both cases, so every release ships one cache name and a phone that
+# installed the app keeps serving that release forever. Assigning the line
+# unconditionally is correct however many times it runs.
+sed -i.bak -E "s|^const BUILD_ID = '[^']*';|const BUILD_ID = '${BUILD_ID}';|" web/sw.js
 rm -f web/sw.js.bak
 
 grep -n "const BUILD_ID" web/sw.js
 
-# A placeholder left behind means the substitution silently missed — fail the
-# deploy rather than shipping an app that can never update itself.
-if grep -q "__BUILD_ID__" web/sw.js; then
-  echo "error: __BUILD_ID__ still present in web/sw.js" >&2
+# The line must exist and must now hold this build's id — anything else means
+# the assignment was reshaped and the stamp missed. Fail rather than ship an
+# app that can never update itself.
+if ! grep -q "^const BUILD_ID = '${BUILD_ID}';" web/sw.js; then
+  echo "error: web/sw.js was not stamped with ${BUILD_ID}" >&2
   exit 1
 fi
