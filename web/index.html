@@ -608,12 +608,33 @@ function clearSignature() {
 }
 
 // Generate PDF
+
+// Re-encode an <img> as a plain PNG through a canvas, sized for print.
+//
+// Handing jsPDF the <img> itself is not safe: it copies a PNG's compressed
+// pixel data into the PDF as it is. The logo is an interlaced PNG, so that data
+// is laid out in Adam7 passes rather than scanlines — the wrong length for what
+// the PDF declares — and Acrobat refuses the image ("Insufficient data for an
+// image") while browser viewers are lenient enough to draw it, which is why it
+// looked fine until the file was opened in Acrobat. A canvas always re-encodes
+// to a plain, non-interlaced PNG, whatever the source file was.
+//
+// The logo prints 16mm tall; 256px is comfortably past 300dpi for that.
+function imageToPngDataUrl(img, maxHeight) {
+  const scale = Math.min(1, maxHeight / img.naturalHeight);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/png');
+}
+
 function generatePDF(meta) {
   const { jsPDF } = window.jspdf || {};
   if (!jsPDF) return null;
 
   const doc = new jsPDF();
-  
+
   // Header Navy Bar
   doc.setFillColor(27, 42, 59);
   doc.rect(0, 0, 210, 28, 'F');
@@ -626,7 +647,8 @@ function generatePDF(meta) {
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
       const logoH = 16;
       const logoW = Math.min(logoH * aspect, 45);
-      doc.addImage(logoImg, 'PNG', 12, 6, logoW, logoH);
+      // 'FAST' deflates the pixel data; left alone jsPDF stores it raw.
+      doc.addImage(imageToPngDataUrl(logoImg, 256), 'PNG', 12, 6, logoW, logoH, undefined, 'FAST');
       titleX = 12 + logoW + 5;
     } catch (e) {
       console.warn('Could not embed logo in PDF:', e);
