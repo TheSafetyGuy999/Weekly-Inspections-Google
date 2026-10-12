@@ -9,14 +9,26 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
-<!-- Served from this origin, not a CDN: the service worker precaches it, so a
-     phone that opens the app with no signal can still build the PDF. See
+<!-- Served from this origin, not a CDN: the service worker precaches both files, so
+     a phone that opens the app with no signal can still build the PDF. See
      README "Vendored libraries".
 
-     `onerror` fires only if the file could not be fetched. A browser too old to
-     run the script still downloads it, so there is no error event — it is just
-     silently absent. pdfProblem() uses the difference to tell the two apart. -->
-<script src="/vendor/jspdf.umd.min.js" onerror="window.pdfLibFetchFailed = true"></script>
+     Two builds of jsPDF. The modern one (4.x) is written in modern JavaScript and
+     a phone older than about 2020 downloads it but cannot run it, leaving no
+     `window.jspdf`. The legacy build (2.5.1, plain ES5) runs anywhere and makes
+     identical PDFs, so when the modern one did not produce a PDF builder — for
+     any reason — load that instead.
+
+     The check is "did it produce one?", not a feature test for specific syntax: a
+     feature test can pass while the real file still fails, and the real file is
+     what has to work. document.write so the legacy script has run before the app
+     script below does. -->
+<script src="/vendor/jspdf.umd.min.js"></script>
+<script>
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    document.write('<script src="/vendor/jspdf-legacy.umd.min.js"><\/script>');
+  }
+</script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -767,21 +779,16 @@ function buildPdf(meta, signatureDataUrl) {
   }
 }
 
-// Why there is no PDF, in words a person in the field can act on. The three cases
-// need different advice, and the wrong advice sends someone in circles:
-//   - the library ran but building this report failed: reloading and retrying is right;
-//   - the file could not be fetched: reloading with signal is right;
-//   - the file arrived but the browser cannot run it (jsPDF 4 needs a browser from
-//     about 2020: Chrome 80, Safari 14, Firefox 74): reloading will never help —
-//     the browser or the phone has to change, so say so.
+// Why there is no PDF, in words a person in the field can act on. Two cases, and
+// the wrong advice sends someone in circles:
+//   - a PDF builder loaded but building this report failed: reload and retry;
+//   - neither build loaded. The legacy one is plain ES5 and runs on any phone, so
+//     the cause is that the files could not be fetched: reload with signal.
 function pdfProblem() {
   if (window.jspdf && window.jspdf.jsPDF) {
     return "the PDF couldn't be built for this report. Reload the app and it will try again.";
   }
-  if (window.pdfLibFetchFailed) {
-    return "the PDF builder didn't load. Reload the app with signal and it will send.";
-  }
-  return "this phone's browser is too old for the PDF builder. Update the browser, or send from another phone.";
+  return "the PDF builder didn't load. Reload the app with signal and it will send.";
 }
 
 // Form Submission

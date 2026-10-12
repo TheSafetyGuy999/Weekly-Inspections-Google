@@ -2,7 +2,7 @@
  * Offline shell for the Airfield Maintenance app.
  *
  * The app makes no requests off its own origin — jsPDF is served from
- * /vendor/ rather than a CDN — so precaching the shell, that script, the
+ * /vendor/ rather than a CDN — so precaching the shell, both jsPDF builds, the
  * manifest and the logo is enough to make the whole thing work with no
  * connectivity, which is the normal state at a lodge airfield. Inspection
  * records live in localStorage and are queued by the app, not by this worker.
@@ -23,8 +23,16 @@ const SHELL = './';
 // Without it the app cannot produce a report offline, so it is required just
 // like the shell: better that install fails and retries on the next load than
 // that a phone believes it works offline and then cannot build a PDF.
+//
+// Both builds are required. The page loads the modern one and falls back to the
+// legacy one on a phone too old to run it, and nothing here can tell in advance
+// which phone it is on. Guessing wrong in the unlucky direction would leave an old
+// phone with no PDF builder the first time it starts offline — exactly the case this
+// exists for — so every phone caches both. The cost is the legacy file's download,
+// once per release.
 const JSPDF = './vendor/jspdf.umd.min.js';
-const REQUIRED = [SHELL, JSPDF];
+const JSPDF_LEGACY = './vendor/jspdf-legacy.umd.min.js';
+const REQUIRED = [SHELL, JSPDF, JSPDF_LEGACY];
 
 const PRECACHE = [
   './manifest.webmanifest',
