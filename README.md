@@ -20,15 +20,16 @@ backend/   optional Node/Express mail server, for sending via your own SMTP
 
 ## The app (`web/`)
 
-`web/index.html` is the bundled build handed off from design: React, jsPDF, the
-fonts and the Wilderness Air logo are all inlined, so the page makes **zero
-external requests** at runtime. Around it this repo adds the pieces that make it
-a deployable field app:
+`web/index.html` is the app. Its one library, jsPDF, is vendored in
+`web/vendor/` rather than loaded from a CDN, so the page makes **no requests off
+its own origin** and can open and build a report with no signal. Around it this
+repo adds the pieces that make it a deployable field app:
 
 - `manifest.webmanifest` + `icons/` — installable to a phone home screen
   ("Add to Home Screen"), launches standalone with the navy status bar.
-- `sw.js` — a service worker that precaches the shell so the app opens and works
-  with no signal at all. It deliberately ignores non-GET and cross-origin
+- `sw.js` — a service worker that precaches the shell, jsPDF and the logo so the
+  app opens and builds reports with no signal at all. It deliberately ignores
+  non-GET and cross-origin
   requests so report delivery to the mail backend is never intercepted or
   silently cached, and skips `/api/*` and `/admin` outright: a cached answer
   there would be a stale register, or a login that appears to succeed offline.
@@ -42,6 +43,27 @@ A record is held in `localStorage` while it is being filled in and until it
 uploads, so the app works through a whole shift with no signal. Once accepted by
 the register the device deletes its copy — the server-side record is the one
 that lasts.
+
+### Vendored libraries
+
+`web/vendor/jspdf.umd.min.js` is jsPDF **2.5.1** (MIT; its own licence banner is
+kept), copied unmodified from the npm package `jspdf@2.5.1`, file
+`dist/jspdf.umd.min.js`:
+
+```
+sha256  98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875
+```
+
+It is committed rather than fetched at build time so a deploy can never leave
+the app without it, and the service worker treats it as **required**: without it
+a phone cannot turn a checklist into a PDF offline.
+
+To update it, replace the file from the new release and then check a report
+still builds with the network off and opens cleanly in Acrobat. npm lists
+advisories against 2.5.1 that are fixed only in 4.x. By title they concern
+features this app never calls (AcroForms, `addJS`, HTML output, BMP/GIF
+decoding), so exposure is low — but move versions deliberately, and test on the
+oldest phones in use, since a newer build may need a newer browser.
 
 ### Local changes to the bundle
 

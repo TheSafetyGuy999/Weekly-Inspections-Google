@@ -1,11 +1,11 @@
 /*
  * Offline shell for the Airfield Maintenance app.
  *
- * The app itself is one self-contained bundle (index.html carries React, jsPDF,
- * fonts and the logo inline), so precaching four files is enough to make the
- * whole thing work with no connectivity — which is the normal state at a lodge
- * airfield. Inspection records live in localStorage and are queued by the app,
- * not by this worker.
+ * The app makes no requests off its own origin — jsPDF is served from
+ * /vendor/ rather than a CDN — so precaching the shell, that script, the
+ * manifest and the logo is enough to make the whole thing work with no
+ * connectivity, which is the normal state at a lodge airfield. Inspection
+ * records live in localStorage and are queued by the app, not by this worker.
  *
  * BUILD_ID is replaced with the commit SHA at deploy time so that every release
  * mints a fresh cache and evicts the previous one.
@@ -18,11 +18,21 @@ const CACHE = 'airfield-' + BUILD_ID;
 // means no service worker and no offline support at all — which would only
 // show up at a lodge with no signal, long after it shipped.
 const SHELL = './';
+
+// jsPDF is what turns a completed checklist into the PDF that gets uploaded.
+// Without it the app cannot produce a report offline, so it is required just
+// like the shell: better that install fails and retries on the next load than
+// that a phone believes it works offline and then cannot build a PDF.
+const JSPDF = './vendor/jspdf.umd.min.js';
+const REQUIRED = [SHELL, JSPDF];
+
 const PRECACHE = [
-  SHELL,
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  // The PDF header draws it. Runtime caching alone would miss it on a first
+  // visit, when the page's own requests go out before the worker controls it.
+  './assets/wilderness-air-logo.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -30,10 +40,10 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE)
       .then(async (c) => {
-        // The shell is the one thing worth failing over; a missing icon is not
-        // a reason to leave the app with no offline mode.
-        await c.add(SHELL);
-        await Promise.allSettled(PRECACHE.slice(1).map((u) => c.add(u)));
+        // Only what the app cannot work without is worth failing over; a
+        // missing icon is not a reason to leave the app with no offline mode.
+        await c.addAll(REQUIRED);
+        await Promise.allSettled(PRECACHE.map((u) => c.add(u)));
       })
       .then(() => self.skipWaiting())
   );
