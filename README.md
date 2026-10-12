@@ -46,24 +46,38 @@ that lasts.
 
 ### Vendored libraries
 
-`web/vendor/jspdf.umd.min.js` is jsPDF **2.5.1** (MIT; its own licence banner is
-kept), copied unmodified from the npm package `jspdf@2.5.1`, file
+`web/vendor/jspdf.umd.min.js` is jsPDF **4.2.1** (MIT; its own licence banner is
+kept), copied unmodified from the npm package `jspdf@4.2.1`, file
 `dist/jspdf.umd.min.js`:
 
 ```
-sha256  98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875
+sha256  e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54
 ```
 
 It is committed rather than fetched at build time so a deploy can never leave
 the app without it, and the service worker treats it as **required**: without it
 a phone cannot turn a checklist into a PDF offline.
 
-To update it, replace the file from the new release and then check a report
-still builds with the network off and opens cleanly in Acrobat. npm lists
-advisories against 2.5.1 that are fixed only in 4.x. By title they concern
-features this app never calls (AcroForms, `addJS`, HTML output, BMP/GIF
-decoding), so exposure is low — but move versions deliberately, and test on the
-oldest phones in use, since a newer build may need a newer browser.
+**Browser requirement.** jsPDF 4 is written in modern JavaScript (class fields and
+optional chaining), so a phone needs a browser from about 2020 or later: **Chrome /
+Android WebView 80, Safari / iOS 14, Firefox 74, Samsung Internet 13**. jsPDF 2.5.1,
+which this replaced, was plain ES5 and ran almost anywhere. On an older browser the
+script still downloads but cannot run, so there is no PDF builder; the app says so
+("this phone's browser is too old…") and keeps the report queued rather than sending
+anything. Reports are not lost, but that phone cannot send until its browser is
+updated or another phone is used.
+
+To update it, replace the file from the new release, then:
+
+1. check what JavaScript level it now needs — if the requirement rises, update the
+   list above, because older phones will stop sending;
+2. compare a generated PDF against the previous version's (text, and every embedded
+   image's declared size against its data — Acrobat rejects a mismatch that
+   browsers tolerate);
+3. check a report still builds with the network off, and opens cleanly in Acrobat.
+
+`npm audit` reports no advisories against 4.2.1. Against 2.5.1 it listed twelve,
+all fixed only in 4.x.
 
 ### Local changes to the bundle
 
