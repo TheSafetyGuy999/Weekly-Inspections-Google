@@ -39,10 +39,15 @@
   // PDFs and photos. KV rather than R2 because the account is not entitled to
   // R2 (API error 10042) and enabling it needs a dashboard subscription step.
   // Keys keep the R2 layout, so moving over later is a swap, not a migration.
+  //
+  // This namespace replaces 670cd2049e1147fc8bccc58c2fbeaa42, which was deleted
+  // from the account (the deploy failed with "KV namespace not found", code
+  // 10041). Deleting a namespace takes its contents with it and cannot be
+  // undone, so do not delete this one without exporting what it holds first.
   "kv_namespaces": [
     {
       "binding": "FILES",
-      "id": "670cd2049e1147fc8bccc58c2fbeaa42"
+      "id": "663a69c8a1e348b8bb1e57673fccbead"
     }
   ]
 
