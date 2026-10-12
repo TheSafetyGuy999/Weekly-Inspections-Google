@@ -46,38 +46,50 @@ that lasts.
 
 ### Vendored libraries
 
-`web/vendor/jspdf.umd.min.js` is jsPDF **4.2.1** (MIT; its own licence banner is
-kept), copied unmodified from the npm package `jspdf@4.2.1`, file
-`dist/jspdf.umd.min.js`:
+Two copies of jsPDF are committed under `web/vendor/`, both unmodified from the npm
+package and both with their own MIT licence banner:
 
-```
-sha256  e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54
-```
+| file | version | source file | sha256 |
+|---|---|---|---|
+| `jspdf.umd.min.js` | **4.2.1** | `jspdf@4.2.1` `dist/jspdf.umd.min.js` | `e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54` |
+| `jspdf-legacy.umd.min.js` | **2.5.1** | `jspdf@2.5.1` `dist/jspdf.umd.min.js` | `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875` |
 
-It is committed rather than fetched at build time so a deploy can never leave
-the app without it, and the service worker treats it as **required**: without it
-a phone cannot turn a checklist into a PDF offline.
+They are committed rather than fetched at build time so a deploy can never leave the
+app without them.
 
-**Browser requirement.** jsPDF 4 is written in modern JavaScript (class fields and
-optional chaining), so a phone needs a browser from about 2020 or later: **Chrome /
-Android WebView 80, Safari / iOS 14, Firefox 74, Samsung Internet 13**. jsPDF 2.5.1,
-which this replaced, was plain ES5 and ran almost anywhere. On an older browser the
-script still downloads but cannot run, so there is no PDF builder; the app says so
-("this phone's browser is too old…") and keeps the report queued rather than sending
-anything. Reports are not lost, but that phone cannot send until its browser is
-updated or another phone is used.
+**Why two.** jsPDF 4 is written in modern JavaScript (class fields, optional
+chaining), so it only runs on a browser from about 2020 or later: **Chrome / Android
+WebView 80, Safari / iOS 14, Firefox 74, Samsung Internet 13**. 2.5.1 is plain ES5 and
+runs almost anywhere. `index.html` loads the modern build and, if it did not produce a
+PDF builder, loads the legacy one instead. The two make the same PDFs (same text, zero
+differing pixels on the four reports compared), so a report from an old phone looks
+like any other.
 
-To update it, replace the file from the new release, then:
+The check is *"did it produce a builder?"* and not a feature test for particular
+syntax: a feature test can pass while the real file still fails, and the real file is
+what has to work. It also covers the modern file failing to download.
 
-1. check what JavaScript level it now needs — if the requirement rises, update the
-   list above, because older phones will stop sending;
+The service worker caches **both** and treats both as required, because it cannot know
+in advance which phone it is on, and an old phone that starts offline with only the
+modern build cached would have no PDF builder at all. The cost is one extra 364 KB
+download per release. Only phones that need the legacy build ever run it.
+
+**The legacy copy is out of date.** `npm audit` listed twelve advisories against 2.5.1
+(two critical), all fixed only in 4.x; it reports none against 4.2.1. By title they
+concern features this app never calls (AcroForms, `addJS`, HTML output, BMP/GIF
+decoding), so exposure is low, and it only ever runs on phones too old for the modern
+build. Treat it as temporary: once no staff phone needs it, delete
+`jspdf-legacy.umd.min.js`, the `document.write` fallback in `index.html`, and its line
+in `sw.js`.
+
+To update either file, replace it from the new release, then:
+
+1. check what JavaScript level the modern build now needs — if the requirement rises,
+   update the list above, because phones below it fall back to the legacy copy;
 2. compare a generated PDF against the previous version's (text, and every embedded
    image's declared size against its data — Acrobat rejects a mismatch that
    browsers tolerate);
 3. check a report still builds with the network off, and opens cleanly in Acrobat.
-
-`npm audit` reports no advisories against 4.2.1. Against 2.5.1 it listed twelve,
-all fixed only in 4.x.
 
 ### Local changes to the bundle
 
