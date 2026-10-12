@@ -632,7 +632,14 @@ function imageToPngDataUrl(img, maxHeight) {
   return canvas.toDataURL('image/png');
 }
 
-function generatePDF(meta) {
+// Build the report PDF. Returns null when it cannot be built — the PDF library
+// did not load.
+//
+// The signature is a parameter, never read from `state`: a report waiting in the
+// queue is built long after it was signed, by which time the canvas holds the
+// next report's signature or none, and the wrong one would be printed on a safety
+// record.
+function generatePDF(meta, signatureDataUrl) {
   const { jsPDF } = window.jspdf || {};
   if (!jsPDF) return null;
 
@@ -733,13 +740,27 @@ function generatePDF(meta) {
   doc.setFontSize(11);
   doc.text(`Signed by: ${meta.signature} on ${meta.date}`, 14, y);
 
-  if (state.signatureDataUrl) {
+  if (signatureDataUrl) {
     try {
-      doc.addImage(state.signatureDataUrl, 'PNG', 14, y + 4, 50, 20);
+      doc.addImage(signatureDataUrl, 'PNG', 14, y + 4, 50, 20);
     } catch (e) {}
   }
 
   return doc.output('blob');
+}
+
+// generatePDF, but a PDF that cannot be built is a null result rather than an
+// exception, so every caller has exactly one "no PDF" case to handle: queue the
+// report and try again later. Uploading something in its place is never right —
+// the server would keep it as the report and the phone would then delete its own
+// copy of the real one.
+function buildPdf(meta, signatureDataUrl) {
+  try {
+    return generatePDF(meta, signatureDataUrl);
+  } catch (e) {
+    console.warn('Could not build the PDF:', e);
+    return null;
+  }
 }
 
 // Form Submission
@@ -773,19 +794,36 @@ async function handleFormSubmit(e) {
     completedAt: new Date().toISOString(),
   };
 
-  const pdfBlob = generatePDF(meta) || new Blob(['PDF Report'], { type: 'application/pdf' });
+  // Everything a phone must hold to send this report later, whole. The PDF is
+  // rebuilt from this when it is sent, so the drawn signature has to be kept
+  // along with the photos.
+  const queueItem = {
+    meta,
+    photosData: state.photos.map(p => p.dataUrl),
+    signatureDataUrl: state.signatureDataUrl,
+  };
+
+  const pdfBlob = buildPdf(meta, state.signatureDataUrl);
+  if (!pdfBlob) {
+    // Nothing to upload. Keep the report; it sends once the PDF can be built.
+    finishQueued(queueItem, "Couldn't build the PDF on this phone. Report saved — reload the app with signal and it will send.");
+    return;
+  }
 
   // Prepare FormData
   const formData = new FormData();
   formData.append('meta', JSON.stringify(meta));
-  if (pdfBlob) formData.append('pdf', pdfBlob, `inspection-${meta.airfield}-${meta.weekEnding}.pdf`);
-  
+  formData.append('pdf', pdfBlob, `inspection-${meta.airfield}-${meta.weekEnding}.pdf`);
+
   state.photos.forEach((p, i) => {
     formData.append(`photo${i}`, p.file, `photo-${i + 1}.jpg`);
   });
 
   const accessKey = localStorage.getItem('wai_mail_key') || '';
   const mailUrl = localStorage.getItem('wai_mail_url') || '';
+
+  // Why the report is being queued, if it is; set below.
+  let queuedMessage;
 
   // Attempt online submit
   if (navigator.onLine) {
@@ -826,17 +864,41 @@ async function handleFormSubmit(e) {
       }
     } catch (err) {
       console.warn('Online submit failed, queueing offline:', err.message);
-      showToast('Submit failed online. Saved to offline queue.');
+      queuedMessage = 'Submit failed online. Saved to offline queue.';
     }
   } else {
-    showToast('Offline mode: Saved report to pending queue.');
+    queuedMessage = 'Offline mode: Saved report to pending queue.';
   }
 
   // Queue report offline in localStorage
-  saveToOfflineQueue({ meta, photosData: state.photos.map(p => p.dataUrl) });
+  finishQueued(queueItem, queuedMessage);
+}
+
+// Hold a report on this phone until it can be sent, then hand the form back.
+//
+// Saving can fail — a phone with a full store has no room for photos — and then
+// the form is left exactly as it was, with a message saying so. The report is
+// still on screen and nothing is lost, which beats a button stuck on
+// "Generating..." or a toast claiming a save that did not happen.
+function finishQueued(item, savedMessage) {
+  const submitBtn = $('submitBtn');
+  const restoreButton = () => {
+    submitBtn.disabled = false;
+    submitBtn.querySelector('span').textContent = 'Submit Inspection Report';
+  };
+
+  try {
+    saveToOfflineQueue(item);
+  } catch (e) {
+    console.warn('Could not queue the report:', e);
+    showToast("Couldn't save this report — this phone's storage is full. Nothing was lost: free some space, then submit again.");
+    restoreButton();
+    return;
+  }
+
+  showToast(savedMessage);
   resetForm();
-  submitBtn.disabled = false;
-  submitBtn.querySelector('span').textContent = 'Submit Inspection Report';
+  restoreButton();
 }
 
 function saveToOfflineQueue(item) {
@@ -858,7 +920,21 @@ function updateQueueBadge() {
   }
 }
 
+// One sync at a time. The `online` event, app load and the Send button can each
+// start one, and a second overlapping the first sends every queued report —
+// photos included — twice, over a connection that is probably already struggling.
+let syncing = false;
 async function syncQueueNow() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    await sendQueuedReports();
+  } finally {
+    syncing = false;
+  }
+}
+
+async function sendQueuedReports() {
   const queue = JSON.parse(localStorage.getItem('wai_pending_queue') || '[]');
   if (queue.length === 0) return;
 
@@ -866,16 +942,35 @@ async function syncQueueNow() {
   if (syncBtn) syncBtn.disabled = true;
 
   let successCount = 0;
+  let waitingForPdf = 0;
   const remaining = [];
 
   const accessKey = localStorage.getItem('wai_mail_key') || '';
 
   for (const item of queue) {
     try {
-      const pdfBlob = generatePDF(item.meta) || new Blob(['PDF Report'], { type: 'application/pdf' });
+      // The signature the report was queued with — never whatever is on screen
+      // now. `|| null`, not a default: a report queued before signatures were
+      // kept has none, and must not borrow the current one.
+      const pdfBlob = buildPdf(item.meta, item.signatureDataUrl || null);
+      if (!pdfBlob) {
+        // Still no PDF. Leave the report queued; it was never sent, so nothing
+        // has been given up.
+        remaining.push(item);
+        waitingForPdf++;
+        continue;
+      }
+
       const formData = new FormData();
       formData.append('meta', JSON.stringify(item.meta));
-      if (pdfBlob) formData.append('pdf', pdfBlob, `inspection-${item.meta.airfield}.pdf`);
+      formData.append('pdf', pdfBlob, `inspection-${item.meta.airfield}.pdf`);
+
+      // The photos were queued as data URLs. They are part of the report, and
+      // once it uploads the queued copy is deleted — so they go now or never.
+      const photos = item.photosData || [];
+      for (let i = 0; i < photos.length; i++) {
+        formData.append(`photo${i}`, await (await fetch(photos[i])).blob(), `photo-${i + 1}.jpg`);
+      }
 
       const res = await fetch('/api/inspections', {
         method: 'POST',
@@ -896,7 +991,9 @@ async function syncQueueNow() {
   localStorage.setItem('wai_pending_queue', JSON.stringify(remaining));
   updateQueueBadge();
 
-  if (successCount > 0) {
+  if (waitingForPdf > 0) {
+    showToast(`${waitingForPdf} report(s) saved but not sent — the PDF can't be built yet. Reload the app with signal.`);
+  } else if (successCount > 0) {
     showToast(`Synced ${successCount} queued report(s)`);
   }
   if (syncBtn) syncBtn.disabled = false;
